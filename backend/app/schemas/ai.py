@@ -10,6 +10,12 @@ class AIHintRequest(BaseModel):
     source_code: Optional[str] = Field("", description="Current candidate code draft")
 
 
+class AICodeReviewRequest(BaseModel):
+    problem_id: uuid.UUID = Field(..., description="Target problem UUID")
+    language: str = Field("python", description="Programming language context")
+    source_code: str = Field(..., description="Current candidate code draft")
+
+
 class UserAIHintItem(BaseModel):
     id: uuid.UUID
     hint_level: int
@@ -45,6 +51,25 @@ class AICodeReviewResponse(BaseModel):
     improvements: List[str] = Field(default_factory=list, description="Recommended optimization areas")
     bugs: List[str] = Field(default_factory=list, description="Identified logical or edge-case bugs")
     suggestions: List[str] = Field(default_factory=list, description="Actionable refactoring suggestions")
+    judge0_status: Optional[str] = Field(None, description="Associated Judge0 execution result if available")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserAICodeReviewDetailResponse(BaseModel):
+    id: uuid.UUID
+    problem_id: uuid.UUID
+    language: str
+    summary: str
+    correctness_assessment: str
+    time_complexity: str
+    space_complexity: str
+    strengths: List[str]
+    improvements: List[str]
+    bugs: List[str]
+    suggestions: List[str]
+    judge0_status: Optional[str] = None
+    created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -104,6 +104,34 @@ export interface UserAIHintHistoryResponse {
   max_hints: number;
 }
 
+export interface AICodeReviewResponse {
+  summary: string;
+  correctness_assessment: string;
+  time_complexity: string;
+  space_complexity: string;
+  strengths: string[];
+  improvements: string[];
+  bugs: string[];
+  suggestions: string[];
+  judge0_status?: string;
+}
+
+export interface UserAICodeReviewDetailResponse {
+  id: string;
+  problem_id: string;
+  language: string;
+  summary: string;
+  correctness_assessment: string;
+  time_complexity: string;
+  space_complexity: string;
+  strengths: string[];
+  improvements: string[];
+  bugs: string[];
+  suggestions: string[];
+  judge0_status?: string;
+  created_at: string;
+}
+
 export interface ProblemListItem {
   id: string;
   title: string;
@@ -339,6 +367,31 @@ export async function generateAIHint(
 ): Promise<AIHintResponse> {
   return apiRequest<AIHintResponse>(
     "/api/v1/ai/hints",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
+}
+
+export async function fetchLatestAICodeReview(
+  token: string,
+  problemId: string
+): Promise<UserAICodeReviewDetailResponse | null> {
+  return apiRequest<UserAICodeReviewDetailResponse | null>(
+    `/api/v1/ai/code-review/${problemId}`,
+    {},
+    token
+  );
+}
+
+export async function generateAICodeReview(
+  token: string,
+  data: { problem_id: string; language: string; source_code: string }
+): Promise<AICodeReviewResponse> {
+  return apiRequest<AICodeReviewResponse>(
+    "/api/v1/ai/code-review",
     {
       method: "POST",
       body: JSON.stringify(data),

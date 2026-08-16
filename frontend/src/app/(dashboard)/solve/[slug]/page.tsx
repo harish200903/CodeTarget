@@ -13,6 +13,8 @@ import {
   unlockNextHint,
   fetchAIHintsHistory,
   generateAIHint,
+  fetchLatestAICodeReview,
+  generateAICodeReview,
   toggleBookmark,
   updateNotes,
   ProblemDetail,
@@ -20,6 +22,7 @@ import {
   Submission,
   Hint,
   UserAIHintItem,
+  AICodeReviewResponse,
 } from "@/lib/api";
 import {
   Play,
@@ -39,6 +42,9 @@ import {
   Save,
   Bot,
   Loader2,
+  Check,
+  AlertTriangle,
+  Zap,
 } from "lucide-react";
 
 export default function ProblemWorkspacePage() {
@@ -55,7 +61,7 @@ export default function ProblemWorkspacePage() {
   const [language, setLanguage] = useState<"python" | "java" | "cpp">("python");
   const [code, setCode] = useState<string>("");
   const [activeTab, setActiveTab] = useState<
-    "description" | "hints" | "ai_hints" | "submissions" | "notes"
+    "description" | "hints" | "ai_hints" | "code_review" | "submissions" | "notes"
   >("description");
 
   // Execution & Output State
@@ -78,6 +84,11 @@ export default function ProblemWorkspacePage() {
   const [requestingAIHint, setRequestingAIHint] = useState(false);
   const [aiHintError, setAiHintError] = useState<string | null>(null);
 
+  // AI Code Review State
+  const [codeReview, setCodeReview] = useState<AICodeReviewResponse | null>(null);
+  const [requestingCodeReview, setRequestingCodeReview] = useState(false);
+  const [codeReviewError, setCodeReviewError] = useState<string | null>(null);
+
   // Bookmarks & Notes
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [notesText, setNotesText] = useState("");
@@ -99,7 +110,7 @@ export default function ProblemWorkspacePage() {
     }
   }, [user, authLoading, router]);
 
-  // Load problem details & AI hint history
+  // Load problem details & AI history
   useEffect(() => {
     async function loadProblem() {
       if (!accessToken || !slug) return;
@@ -120,12 +131,18 @@ export default function ProblemWorkspacePage() {
           setCode(data.starter_code[language]);
         }
 
-        // Fetch AI Hints history
+        // Fetch AI Hints & Code Review history
         try {
-          const aiHistory = await fetchAIHintsHistory(accessToken, data.id);
+          const [aiHistory, latestReview] = await Promise.all([
+            fetchAIHintsHistory(accessToken, data.id),
+            fetchLatestAICodeReview(accessToken, data.id),
+          ]);
           setAiHints(aiHistory.items || []);
+          if (latestReview) {
+            setCodeReview(latestReview);
+          }
         } catch (e) {
-          console.error("AI hints history load error", e);
+          console.error("AI history load error", e);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load problem");
@@ -266,6 +283,28 @@ export default function ProblemWorkspacePage() {
     }
   };
 
+  const handleRequestAICodeReview = async () => {
+    if (!accessToken || !problem) return;
+    if (!code || !code.trim()) {
+      setCodeReviewError("Please write or paste some source code before requesting a review.");
+      return;
+    }
+    setRequestingCodeReview(true);
+    setCodeReviewError(null);
+    try {
+      const reviewRes = await generateAICodeReview(accessToken, {
+        problem_id: problem.id,
+        language,
+        source_code: code,
+      });
+      setCodeReview(reviewRes);
+    } catch (err) {
+      setCodeReviewError(err instanceof Error ? err.message : "Failed to generate AI code review");
+    } finally {
+      setRequestingCodeReview(false);
+    }
+  };
+
   const handleToggleBookmark = async () => {
     if (!accessToken || !problem) return;
     const nextState = !isBookmarked;
@@ -382,8 +421,9 @@ export default function ProblemWorkspacePage() {
               { id: "description", label: "Description", icon: FileText },
               { id: "hints", label: `Curated (${unlockedStaticHints.length}/3)`, icon: Lightbulb },
               { id: "ai_hints", label: `AI Mentor (${aiHints.length}/3)`, icon: Bot },
+              { id: "code_review", label: "AI Code Review", icon: Sparkles },
               { id: "submissions", label: "Submissions", icon: History },
-              { id: "notes", label: "Notes", icon: Sparkles },
+              { id: "notes", label: "Notes", icon: Save },
             ].map((tab) => {
               const Icon = tab.icon;
               return (
@@ -483,7 +523,7 @@ export default function ProblemWorkspacePage() {
               </div>
             )}
 
-            {/* AI Mentor Progressive Hints Tab (Phase 4B) */}
+            {/* AI Mentor Progressive Hints Tab */}
             {activeTab === "ai_hints" && (
               <div className="space-y-5">
                 <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/40 to-violet-950/40 border border-indigo-500/30 space-y-3">
@@ -538,14 +578,13 @@ export default function ProblemWorkspacePage() {
                   </div>
                 )}
 
-                {/* AI Hints List */}
                 <div className="space-y-4">
                   {aiHints.length === 0 ? (
                     <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-xl space-y-2 text-slate-400">
                       <Bot className="w-8 h-8 text-indigo-400/40 mx-auto" />
                       <p className="text-xs font-semibold text-slate-300">Need personalized guidance?</p>
                       <p className="text-[11px] text-slate-500">
-                        Click "Get AI Hint" above. Your mentor will analyze your code draft without revealing the answer.
+                        Click "Get AI Hint" above to receive guidance without revealing the answer.
                       </p>
                     </div>
                   ) : (
@@ -572,6 +611,145 @@ export default function ProblemWorkspacePage() {
                     ))
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* AI Code Review Tab (Phase 4C) */}
+            {activeTab === "code_review" && (
+              <div className="space-y-5">
+                <div className="p-5 rounded-xl bg-gradient-to-r from-violet-950/40 to-indigo-950/40 border border-violet-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="p-2 rounded-lg bg-violet-500/20 text-violet-400">
+                        <Sparkles className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">AI Code Reviewer</h3>
+                        <p className="text-[11px] text-slate-400">Get constructive correctness & Big-O feedback on your code draft</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    disabled={requestingCodeReview}
+                    onClick={handleRequestAICodeReview}
+                    className="w-full py-2.5 bg-gradient-to-r from-violet-600 to-indigo-600 hover:from-violet-500 hover:to-indigo-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition-all shadow-md shadow-violet-500/20 flex items-center justify-center space-x-2"
+                  >
+                    {requestingCodeReview ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin text-white" />
+                        <span>Analyzing your code solution...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Zap className="w-4 h-4 text-amber-300 fill-amber-300" />
+                        <span>Review My Code</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {codeReviewError && (
+                  <div className="p-3 bg-rose-950/40 border border-rose-800/40 text-rose-300 text-xs rounded-xl flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{codeReviewError}</span>
+                  </div>
+                )}
+
+                {!codeReview ? (
+                  <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-xl space-y-2 text-slate-400">
+                    <Sparkles className="w-8 h-8 text-violet-400/40 mx-auto" />
+                    <p className="text-xs font-semibold text-slate-300">Ready for code review?</p>
+                    <p className="text-[11px] text-slate-500 max-w-xs mx-auto">
+                      Write your solution in the editor and click "Review My Code" to receive correctness analysis and Big-O performance metrics.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {/* Safe Judge0 Context Banner */}
+                    {codeReview.judge0_status && (
+                      <div className="p-3 bg-slate-900 border border-slate-800 rounded-xl flex items-center justify-between text-xs">
+                        <span className="text-slate-400 font-medium">Judge0 Execution Context:</span>
+                        <span className={`font-bold ${codeReview.judge0_status === "ACCEPTED" ? "text-emerald-400" : "text-rose-400"}`}>
+                          {codeReview.judge0_status}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Summary */}
+                    <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                      <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider">Overall Assessment</h4>
+                      <p className="text-xs text-slate-200 leading-relaxed">{codeReview.summary}</p>
+                    </div>
+
+                    {/* Correctness & Asymptotic Complexity Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Correctness</h4>
+                        <div className="text-xs font-bold text-indigo-300 bg-indigo-950/60 p-2 rounded border border-indigo-800/40">
+                          {codeReview.correctness_assessment}
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                        <h4 className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Asymptotic Complexity</h4>
+                        <div className="flex items-center space-x-2 text-xs">
+                          <span className="px-2.5 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded font-mono font-bold">
+                            Time: {codeReview.time_complexity}
+                          </span>
+                          <span className="px-2.5 py-1 bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded font-mono font-bold">
+                            Space: {codeReview.space_complexity}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Strengths */}
+                    {codeReview.strengths?.length > 0 && (
+                      <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                        <h4 className="text-xs font-bold text-emerald-400 uppercase tracking-wider flex items-center space-x-1.5">
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>What You Did Well</span>
+                        </h4>
+                        <ul className="space-y-1 text-xs text-slate-300 list-disc list-inside">
+                          {codeReview.strengths.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Potential Bugs */}
+                    {codeReview.bugs?.length > 0 && (
+                      <div className="p-4 bg-slate-900 border border-rose-900/30 rounded-xl space-y-2">
+                        <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider flex items-center space-x-1.5">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
+                          <span>Potential Issues & Bugs</span>
+                        </h4>
+                        <ul className="space-y-1 text-xs text-rose-200 list-disc list-inside">
+                          {codeReview.bugs.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+
+                    {/* Actionable Improvements */}
+                    {codeReview.improvements?.length > 0 && (
+                      <div className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2">
+                        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center space-x-1.5">
+                          <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                          <span>Refactoring & Optimization Areas</span>
+                        </h4>
+                        <ul className="space-y-1 text-xs text-slate-300 list-disc list-inside">
+                          {codeReview.improvements.map((item, i) => (
+                            <li key={i}>{item}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
@@ -656,7 +834,6 @@ export default function ProblemWorkspacePage() {
 
         {/* Right Panel: Monaco Code Editor & Execution Console */}
         <div className="lg:col-span-7 flex flex-col bg-[#0B0F17] overflow-hidden">
-          {/* Editor Header Toolbar */}
           <div className="h-12 bg-slate-900/80 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
             <div className="flex items-center space-x-2">
               <span className="text-xs text-slate-400 font-medium">Language:</span>
@@ -698,7 +875,6 @@ export default function ProblemWorkspacePage() {
             </div>
           </div>
 
-          {/* Monaco Editor Container */}
           <div className="flex-1 bg-[#1e1e1e] relative min-h-[300px]">
             <Editor
               height="100%"
@@ -716,7 +892,6 @@ export default function ProblemWorkspacePage() {
             />
           </div>
 
-          {/* Bottom Execution Console Panel */}
           <div className="h-64 border-t border-slate-800 bg-slate-950 flex flex-col shrink-0">
             <div className="h-9 bg-slate-900 border-b border-slate-800 px-4 flex items-center space-x-4 text-xs font-medium">
               <button
@@ -807,7 +982,6 @@ export default function ProblemWorkspacePage() {
         </div>
       </div>
 
-      {/* Language Override Warning Modal */}
       {showLanguageWarning && (
         <div className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl">
