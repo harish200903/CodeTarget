@@ -42,6 +42,7 @@ class Problem(Base):
     slug = Column(String(255), unique=True, nullable=False, index=True)
     description_markdown = Column(Text, nullable=False)
     difficulty = Column(SQLEnum(DifficultyLevel), nullable=False, index=True)
+    category = Column(String(100), default="Algorithms", nullable=False)
     constraints_text = Column(Text, nullable=True)
     starter_code = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False)
     solution_editorial = Column(Text, nullable=True)
@@ -57,6 +58,14 @@ class Problem(Base):
     submissions = relationship("Submission", back_populates="problem", cascade="all, delete-orphan")
     user_progress = relationship("UserProblemProgress", back_populates="problem", cascade="all, delete-orphan")
     mock_test_associations = relationship("MockTestProblem", back_populates="problem", cascade="all, delete-orphan")
+
+    @property
+    def topics(self):
+        return [pt.topic for pt in self.topic_associations if pt.topic]
+
+    @property
+    def companies(self):
+        return [pc for pc in self.company_associations if pc.company]
 
 
 class ProblemCompany(Base):
