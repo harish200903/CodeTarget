@@ -1,5 +1,30 @@
+import uuid
+from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict
+
+
+class AIHintRequest(BaseModel):
+    problem_id: uuid.UUID = Field(..., description="Target problem UUID")
+    language: str = Field("python", description="Programming language context")
+    source_code: Optional[str] = Field("", description="Current candidate code draft")
+
+
+class UserAIHintItem(BaseModel):
+    id: uuid.UUID
+    hint_level: int
+    language: str
+    hint_text: str
+    focus_concept: Optional[str] = None
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class UserAIHintHistoryResponse(BaseModel):
+    items: List[UserAIHintItem]
+    hints_unlocked: int
+    max_hints: int = 3
 
 
 class AIHintResponse(BaseModel):

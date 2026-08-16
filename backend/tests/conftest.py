@@ -163,6 +163,20 @@ app.dependency_overrides[get_db] = override_get_db
 
 
 @pytest.fixture
+async def db_session() -> AsyncGenerator[AsyncSession, None]:
+    """Fixture providing a direct AsyncSession for test assertions."""
+    async with TestingSessionLocal() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+        finally:
+            await session.close()
+
+
+@pytest.fixture
 async def async_client() -> AsyncGenerator[AsyncClient, None]:
     async with AsyncClient(
         transport=ASGITransport(app=app),

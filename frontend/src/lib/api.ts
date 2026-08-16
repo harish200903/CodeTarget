@@ -82,6 +82,28 @@ export interface Hint {
   code_snippet?: string;
 }
 
+export interface AIHintResponse {
+  hint_text: string;
+  hint_level: number;
+  should_reveal_solution: boolean;
+  focus_concept?: string;
+}
+
+export interface UserAIHintItem {
+  id: string;
+  hint_level: number;
+  language: string;
+  hint_text: string;
+  focus_concept?: string;
+  created_at: string;
+}
+
+export interface UserAIHintHistoryResponse {
+  items: UserAIHintItem[];
+  hints_unlocked: number;
+  max_hints: number;
+}
+
 export interface ProblemListItem {
   id: string;
   title: string;
@@ -302,6 +324,27 @@ export async function fetchSubmissionsForProblem(
 
 export async function unlockNextHint(token: string, problemId: string): Promise<Hint> {
   return apiRequest<Hint>(`/api/v1/problems/${problemId}/hints/unlock`, { method: "POST" }, token);
+}
+
+export async function fetchAIHintsHistory(
+  token: string,
+  problemId: string
+): Promise<UserAIHintHistoryResponse> {
+  return apiRequest<UserAIHintHistoryResponse>(`/api/v1/ai/hints/${problemId}`, {}, token);
+}
+
+export async function generateAIHint(
+  token: string,
+  data: { problem_id: string; language: string; source_code?: string }
+): Promise<AIHintResponse> {
+  return apiRequest<AIHintResponse>(
+    "/api/v1/ai/hints",
+    {
+      method: "POST",
+      body: JSON.stringify(data),
+    },
+    token
+  );
 }
 
 export async function toggleBookmark(

@@ -11,12 +11,15 @@ import {
   submitSolution,
   fetchSubmissionsForProblem,
   unlockNextHint,
+  fetchAIHintsHistory,
+  generateAIHint,
   toggleBookmark,
   updateNotes,
   ProblemDetail,
   BatchExecutionResult,
   Submission,
   Hint,
+  UserAIHintItem,
 } from "@/lib/api";
 import {
   Play,
@@ -34,6 +37,8 @@ import {
   Code2,
   Sparkles,
   Save,
+  Bot,
+  Loader2,
 } from "lucide-react";
 
 export default function ProblemWorkspacePage() {
@@ -49,8 +54,10 @@ export default function ProblemWorkspacePage() {
   // Workspace State
   const [language, setLanguage] = useState<"python" | "java" | "cpp">("python");
   const [code, setCode] = useState<string>("");
-  const [activeTab, setActiveTab] = useState<"description" | "hints" | "submissions" | "notes">("description");
-  
+  const [activeTab, setActiveTab] = useState<
+    "description" | "hints" | "ai_hints" | "submissions" | "notes"
+  >("description");
+
   // Execution & Output State
   const [running, setRunning] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -58,11 +65,20 @@ export default function ProblemWorkspacePage() {
   const [submissionResult, setSubmissionResult] = useState<Submission | null>(null);
   const [activeConsoleTab, setActiveConsoleTab] = useState<"sample" | "submission">("sample");
 
-  // Submissions & Notes & Hints State
+  // Submissions & Notes State
   const [submissionsList, setSubmissionsList] = useState<Submission[]>([]);
   const [selectedSubmissionCode, setSelectedSubmissionCode] = useState<string | null>(null);
-  const [unlockedHints, setUnlockedHints] = useState<Hint[]>([]);
-  const [unlockingHint, setUnlockingHint] = useState(false);
+  
+  // Static Hints State
+  const [unlockedStaticHints, setUnlockedStaticHints] = useState<Hint[]>([]);
+  const [unlockingStaticHint, setUnlockingStaticHint] = useState(false);
+
+  // AI Hints State
+  const [aiHints, setAiHints] = useState<UserAIHintItem[]>([]);
+  const [requestingAIHint, setRequestingAIHint] = useState(false);
+  const [aiHintError, setAiHintError] = useState<string | null>(null);
+
+  // Bookmarks & Notes
   const [isBookmarked, setIsBookmarked] = useState(false);
   const [notesText, setNotesText] = useState("");
   const [savingNotes, setSavingNotes] = useState(false);
@@ -83,7 +99,7 @@ export default function ProblemWorkspacePage() {
     }
   }, [user, authLoading, router]);
 
-  // Load problem details
+  // Load problem details & AI hint history
   useEffect(() => {
     async function loadProblem() {
       if (!accessToken || !slug) return;
@@ -92,7 +108,7 @@ export default function ProblemWorkspacePage() {
       try {
         const data = await fetchProblemBySlug(slug, accessToken);
         setProblem(data);
-        setUnlockedHints(data.hints || []);
+        setUnlockedStaticHints(data.hints || []);
         setIsBookmarked(data.is_bookmarked || false);
         setNotesText(data.personal_notes || "");
 
@@ -102,6 +118,14 @@ export default function ProblemWorkspacePage() {
           setCode(savedDraft);
         } else if (data.starter_code?.[language]) {
           setCode(data.starter_code[language]);
+        }
+
+        // Fetch AI Hints history
+        try {
+          const aiHistory = await fetchAIHintsHistory(accessToken, data.id);
+          setAiHints(aiHistory.items || []);
+        } catch (e) {
+          console.error("AI hints history load error", e);
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to load problem");
@@ -132,7 +156,6 @@ export default function ProblemWorkspacePage() {
   const handleLanguageChangeRequest = (newLang: "python" | "java" | "cpp") => {
     if (newLang === language) return;
     const starter = problem?.starter_code?.[language] || "";
-    // If current code has been modified from starter, warn user
     if (code.trim() !== starter.trim()) {
       setPendingLanguage(newLang);
       setShowLanguageWarning(true);
@@ -190,7 +213,6 @@ export default function ProblemWorkspacePage() {
         code,
       });
       setSubmissionResult(res);
-      // Reload problem detail to reflect updated progress (SOLVED/ATTEMPTED)
       const updated = await fetchProblemBySlug(slug, accessToken);
       setProblem(updated);
     } catch (err) {
@@ -200,19 +222,47 @@ export default function ProblemWorkspacePage() {
     }
   };
 
-  const handleUnlockHint = async () => {
+  const handleUnlockStaticHint = async () => {
     if (!accessToken || !problem) return;
-    setUnlockingHint(true);
+    setUnlockingStaticHint(true);
     try {
       const newHint = await unlockNextHint(accessToken, problem.id);
-      setUnlockedHints((prev) => [...prev, newHint]);
+      setUnlockedStaticHints((prev) => [...prev, newHint]);
       setProblem((prev) =>
         prev ? { ...prev, hints_unlocked: prev.hints_unlocked + 1 } : null
       );
     } catch (err) {
       console.error(err);
     } finally {
-      setUnlockingHint(false);
+      setUnlockingStaticHint(false);
+    }
+  };
+
+  const handleRequestAIHint = async () => {
+    if (!accessToken || !problem) return;
+    setRequestingAIHint(true);
+    setAiHintError(null);
+    try {
+      const hintRes = await generateAIHint(accessToken, {
+        problem_id: problem.id,
+        language,
+        source_code: code,
+      });
+      setAiHints((prev) => [
+        ...prev,
+        {
+          id: String(Date.now()),
+          hint_level: hintRes.hint_level,
+          language,
+          hint_text: hintRes.hint_text,
+          focus_concept: hintRes.focus_concept,
+          created_at: new Date().toISOString(),
+        },
+      ]);
+    } catch (err) {
+      setAiHintError(err instanceof Error ? err.message : "Failed to generate AI hint");
+    } finally {
+      setRequestingAIHint(false);
     }
   };
 
@@ -223,7 +273,7 @@ export default function ProblemWorkspacePage() {
     try {
       await toggleBookmark(accessToken, problem.id, nextState);
     } catch (err) {
-      setIsBookmarked(!nextState); // Rollback on error
+      setIsBookmarked(!nextState);
     }
   };
 
@@ -239,6 +289,19 @@ export default function ProblemWorkspacePage() {
       console.error(err);
     } finally {
       setSavingNotes(false);
+    }
+  };
+
+  const getAIHintLevelLabel = (level: number) => {
+    switch (level) {
+      case 1:
+        return "Level 1: Conceptual Direction";
+      case 2:
+        return "Level 2: Algorithmic Strategy";
+      case 3:
+        return "Level 3: Tactical Guidance";
+      default:
+        return `Level ${level}`;
     }
   };
 
@@ -311,13 +374,14 @@ export default function ProblemWorkspacePage() {
 
       {/* Main Two-Panel Split Grid */}
       <div className="flex-1 grid grid-cols-1 lg:grid-cols-12 overflow-hidden">
-        {/* Left Panel: Problem Specs, Description, Hints, Submissions, Notes */}
+        {/* Left Panel */}
         <div className="lg:col-span-5 border-r border-slate-800 flex flex-col bg-slate-950/50 overflow-hidden">
-          {/* Tab Selection Navigation */}
-          <div className="flex items-center border-b border-slate-800 bg-slate-900/60 px-2 shrink-0">
+          {/* Tab Navigation */}
+          <div className="flex items-center border-b border-slate-800 bg-slate-900/60 px-2 shrink-0 overflow-x-auto">
             {[
               { id: "description", label: "Description", icon: FileText },
-              { id: "hints", label: `Hints (${unlockedHints.length})`, icon: Lightbulb },
+              { id: "hints", label: `Curated (${unlockedStaticHints.length}/3)`, icon: Lightbulb },
+              { id: "ai_hints", label: `AI Mentor (${aiHints.length}/3)`, icon: Bot },
               { id: "submissions", label: "Submissions", icon: History },
               { id: "notes", label: "Notes", icon: Sparkles },
             ].map((tab) => {
@@ -326,7 +390,7 @@ export default function ProblemWorkspacePage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center space-x-2 px-4 py-3 text-xs font-medium border-b-2 transition-colors ${
+                  className={`flex items-center space-x-1.5 px-3.5 py-3 text-xs font-medium border-b-2 whitespace-nowrap transition-colors ${
                     activeTab === tab.id
                       ? "border-indigo-500 text-indigo-400 bg-slate-800/40"
                       : "border-transparent text-slate-400 hover:text-slate-200"
@@ -339,11 +403,10 @@ export default function ProblemWorkspacePage() {
             })}
           </div>
 
-          {/* Tab Content Panel */}
+          {/* Tab Content */}
           <div className="flex-1 p-6 overflow-y-auto space-y-6">
             {activeTab === "description" && (
               <div className="space-y-6 text-sm text-slate-300">
-                {/* Difficulty & Categories */}
                 <div className="flex flex-wrap items-center gap-2 pb-4 border-b border-slate-800">
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                     {problem.difficulty}
@@ -358,12 +421,10 @@ export default function ProblemWorkspacePage() {
                   ))}
                 </div>
 
-                {/* Markdown Problem Description */}
                 <div className="prose prose-invert max-w-none text-slate-200 whitespace-pre-line font-sans text-sm leading-relaxed">
                   {problem.description_markdown}
                 </div>
 
-                {/* Constraints */}
                 {problem.constraints_text && (
                   <div className="space-y-2 pt-2">
                     <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
@@ -374,59 +435,43 @@ export default function ProblemWorkspacePage() {
                     </pre>
                   </div>
                 )}
-
-                {/* Associated Recruiter Target Companies */}
-                {problem.companies.length > 0 && (
-                  <div className="space-y-2 pt-2">
-                    <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider">
-                      Target Recruiters
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {problem.companies.map((pc) => (
-                        <span
-                          key={pc.id}
-                          className="px-2.5 py-1 rounded-md text-xs font-medium bg-indigo-950/40 text-indigo-300 border border-indigo-800/40"
-                        >
-                          {pc.company.name}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
               </div>
             )}
 
             {activeTab === "hints" && (
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-white">Progressive Hints</h3>
-                  {unlockedHints.length < 3 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-white">Curated Hints</h3>
+                    <p className="text-[11px] text-slate-400">Static hints provided by problem authors</p>
+                  </div>
+                  {unlockedStaticHints.length < 3 && (
                     <button
-                      disabled={unlockingHint}
-                      onClick={handleUnlockHint}
-                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white rounded-lg text-xs font-medium transition-colors flex items-center space-x-1"
+                      disabled={unlockingStaticHint}
+                      onClick={handleUnlockStaticHint}
+                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-slate-200 border border-slate-700 rounded-lg text-xs font-medium transition-colors flex items-center space-x-1"
                     >
-                      <Lightbulb className="w-3.5 h-3.5" />
-                      <span>{unlockingHint ? "Unlocking..." : `Unlock Hint ${unlockedHints.length + 1}`}</span>
+                      <Lightbulb className="w-3.5 h-3.5 text-amber-400" />
+                      <span>{unlockingStaticHint ? "Unlocking..." : `Unlock Hint ${unlockedStaticHints.length + 1}`}</span>
                     </button>
                   )}
                 </div>
 
-                {unlockedHints.length === 0 ? (
+                {unlockedStaticHints.length === 0 ? (
                   <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-xl space-y-2 text-slate-400">
-                    <Lightbulb className="w-8 h-8 text-amber-400/60 mx-auto" />
-                    <p className="text-xs">No hints unlocked yet. Click above to reveal progressive guidance.</p>
+                    <Lightbulb className="w-8 h-8 text-slate-600 mx-auto" />
+                    <p className="text-xs">No curated static hints unlocked yet.</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {unlockedHints.map((hint) => (
+                    {unlockedStaticHints.map((hint) => (
                       <div
                         key={hint.id}
-                        className="p-4 bg-slate-900 border border-amber-500/20 rounded-xl space-y-2"
+                        className="p-4 bg-slate-900 border border-slate-800 rounded-xl space-y-2"
                       >
-                        <div className="flex items-center space-x-2 text-amber-400 font-semibold text-xs">
-                          <Lightbulb className="w-4 h-4" />
-                          <span>Hint {hint.step_number}: {hint.title}</span>
+                        <div className="flex items-center space-x-2 text-slate-300 font-semibold text-xs">
+                          <Lightbulb className="w-4 h-4 text-amber-400" />
+                          <span>Curated Hint {hint.step_number}: {hint.title}</span>
                         </div>
                         <p className="text-xs text-slate-300 leading-relaxed">
                           {hint.content_markdown}
@@ -435,6 +480,98 @@ export default function ProblemWorkspacePage() {
                     ))}
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* AI Mentor Progressive Hints Tab (Phase 4B) */}
+            {activeTab === "ai_hints" && (
+              <div className="space-y-5">
+                <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-950/40 to-violet-950/40 border border-indigo-500/30 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <div className="p-2 rounded-lg bg-indigo-500/20 text-indigo-400">
+                        <Bot className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-bold text-white">AI Code Mentor</h3>
+                        <p className="text-[11px] text-slate-400">Contextual guidance based on your current code draft</p>
+                      </div>
+                    </div>
+                    <span className="text-xs font-semibold text-indigo-300 bg-indigo-500/20 border border-indigo-500/30 px-2.5 py-1 rounded-full">
+                      {aiHints.length} / 3 Used
+                    </span>
+                  </div>
+
+                  {problem.user_status === "SOLVED" ? (
+                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg text-xs text-emerald-400">
+                      You have already solved this problem! Review your approach or optimize your code instead of requesting hints.
+                    </div>
+                  ) : aiHints.length < 3 ? (
+                    <button
+                      disabled={requestingAIHint}
+                      onClick={handleRequestAIHint}
+                      className="w-full py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 disabled:opacity-50 text-white font-semibold text-xs rounded-lg transition-all shadow-md shadow-indigo-500/20 flex items-center justify-center space-x-2"
+                    >
+                      {requestingAIHint ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin text-white" />
+                          <span>Your AI mentor is thinking...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="w-4 h-4 text-indigo-200" />
+                          <span>{aiHints.length === 0 ? "Get AI Hint 1 (Conceptual)" : aiHints.length === 1 ? "Get AI Hint 2 (Strategic)" : "Get AI Hint 3 (Tactical)"}</span>
+                        </>
+                      )}
+                    </button>
+                  ) : (
+                    <div className="p-3 bg-slate-900 border border-slate-800 rounded-lg text-xs text-slate-400 text-center font-medium">
+                      You have used all 3 AI hints for this problem.
+                    </div>
+                  )}
+                </div>
+
+                {aiHintError && (
+                  <div className="p-3 bg-rose-950/40 border border-rose-800/40 text-rose-300 text-xs rounded-xl flex items-center space-x-2">
+                    <AlertCircle className="w-4 h-4 shrink-0" />
+                    <span>{aiHintError}</span>
+                  </div>
+                )}
+
+                {/* AI Hints List */}
+                <div className="space-y-4">
+                  {aiHints.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-xl space-y-2 text-slate-400">
+                      <Bot className="w-8 h-8 text-indigo-400/40 mx-auto" />
+                      <p className="text-xs font-semibold text-slate-300">Need personalized guidance?</p>
+                      <p className="text-[11px] text-slate-500">
+                        Click "Get AI Hint" above. Your mentor will analyze your code draft without revealing the answer.
+                      </p>
+                    </div>
+                  ) : (
+                    aiHints.map((hint, idx) => (
+                      <div
+                        key={hint.id || idx}
+                        className="p-5 bg-slate-900/90 border border-indigo-500/30 rounded-xl space-y-3 shadow-lg"
+                      >
+                        <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                          <span className="text-xs font-bold text-indigo-400 flex items-center space-x-1.5">
+                            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+                            <span>{getAIHintLevelLabel(hint.hint_level)}</span>
+                          </span>
+                          {hint.focus_concept && (
+                            <span className="text-[10px] font-semibold text-violet-300 bg-violet-950/60 px-2 py-0.5 rounded border border-violet-800/40">
+                              {hint.focus_concept}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-200 leading-relaxed whitespace-pre-line font-sans">
+                          {hint.hint_text}
+                        </p>
+                      </div>
+                    ))
+                  )}
+                </div>
               </div>
             )}
 
@@ -471,13 +608,6 @@ export default function ProblemWorkspacePage() {
                           <span className="text-slate-500">
                             {new Date(sub.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                           </span>
-                        </div>
-
-                        <div className="flex items-center justify-between text-[11px] text-slate-400">
-                          <span>Passed: {sub.passed_test_cases}/{sub.total_test_cases}</span>
-                          {sub.execution_time_ms !== undefined && (
-                            <span>{sub.execution_time_ms} ms</span>
-                          )}
                         </div>
 
                         {selectedSubmissionCode === sub.code && (
@@ -528,7 +658,6 @@ export default function ProblemWorkspacePage() {
         <div className="lg:col-span-7 flex flex-col bg-[#0B0F17] overflow-hidden">
           {/* Editor Header Toolbar */}
           <div className="h-12 bg-slate-900/80 border-b border-slate-800 px-4 flex items-center justify-between shrink-0">
-            {/* Language Selector */}
             <div className="flex items-center space-x-2">
               <span className="text-xs text-slate-400 font-medium">Language:</span>
               <select
@@ -542,7 +671,6 @@ export default function ProblemWorkspacePage() {
               </select>
             </div>
 
-            {/* Actions */}
             <div className="flex items-center space-x-2">
               <button
                 onClick={handleResetCode}
@@ -634,45 +762,6 @@ export default function ProblemWorkspacePage() {
                         <span className="text-slate-400">
                           Passed: {sampleResult.passed_test_cases} / {sampleResult.total_test_cases}
                         </span>
-                        {sampleResult.execution_time_ms !== undefined && (
-                          <span className="text-slate-500">• {sampleResult.execution_time_ms} ms</span>
-                        )}
-                      </div>
-
-                      <div className="space-y-3">
-                        {sampleResult.test_case_results.map((tc, idx) => (
-                          <div key={idx} className="p-3 bg-slate-900 border border-slate-800 rounded-lg space-y-2">
-                            <div className="flex items-center space-x-2 font-sans font-semibold">
-                              {tc.passed ? (
-                                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                              ) : (
-                                <XCircle className="w-4 h-4 text-rose-400" />
-                              )}
-                              <span>Test Case {idx + 1}</span>
-                            </div>
-                            <div className="grid grid-cols-2 gap-4 text-xs">
-                              <div>
-                                <span className="text-slate-500 block">Input:</span>
-                                <pre className="bg-slate-950 p-2 rounded text-slate-300">{tc.input_data}</pre>
-                              </div>
-                              <div>
-                                <span className="text-slate-500 block">Expected:</span>
-                                <pre className="bg-slate-950 p-2 rounded text-slate-300">{tc.expected_output}</pre>
-                              </div>
-                            </div>
-                            {!tc.passed && tc.actual_output && (
-                              <div>
-                                <span className="text-slate-500 block">Received:</span>
-                                <pre className="bg-slate-950 p-2 rounded text-rose-300">{tc.actual_output}</pre>
-                              </div>
-                            )}
-                            {tc.error_message && (
-                              <pre className="bg-rose-950/40 border border-rose-800/40 p-2 rounded text-rose-300 whitespace-pre-wrap">
-                                {tc.error_message}
-                              </pre>
-                            )}
-                          </div>
-                        ))}
                       </div>
                     </div>
                   )}
@@ -707,25 +796,7 @@ export default function ProblemWorkspacePage() {
                               </span>
                             )}
                           </div>
-                          <span className="text-xs text-slate-400">
-                            Passed {submissionResult.passed_test_cases} / {submissionResult.total_test_cases} test cases
-                          </span>
                         </div>
-
-                        {submissionResult.execution_time_ms !== undefined && (
-                          <div className="text-xs text-slate-400 flex items-center space-x-4 pt-2">
-                            <span>Runtime: {submissionResult.execution_time_ms} ms</span>
-                            {submissionResult.memory_kb && (
-                              <span>Memory: {submissionResult.memory_kb} KB</span>
-                            )}
-                          </div>
-                        )}
-
-                        {submissionResult.error_output && (
-                          <pre className="mt-3 p-3 bg-rose-950/40 border border-rose-800/40 rounded-lg text-xs font-mono text-rose-300 whitespace-pre-wrap">
-                            {submissionResult.error_output}
-                          </pre>
-                        )}
                       </div>
                     </div>
                   )}
@@ -745,7 +816,7 @@ export default function ProblemWorkspacePage() {
               <span>Change Language?</span>
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed">
-              You have modified code in the editor. Changing language will load the starter code for {pendingLanguage}. Your current code draft is saved locally.
+              Changing language will load starter code for {pendingLanguage}. Your current code draft is saved locally.
             </p>
             <div className="flex justify-end space-x-3 pt-2">
               <button

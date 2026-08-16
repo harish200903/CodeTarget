@@ -10,6 +10,7 @@ from app.models.mock_test import (
     MockTest, MockTestProblem, UserMockTest, UserMockTestSubmission, MockTestStatus
 )
 from app.models.ai_log import AIUsageLog
+from app.models.user_ai_hint import UserAIHint
 
 __all__ = [
     "Base",
@@ -37,4 +38,5 @@ __all__ = [
     "UserMockTestSubmission",
     "MockTestStatus",
     "AIUsageLog",
+    "UserAIHint",
 ]
