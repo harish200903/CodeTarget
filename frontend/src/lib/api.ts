@@ -424,6 +424,81 @@ export interface AuditLogPaginatedResponse {
   total_pages: number;
 }
 
+// Gamification Schemas
+export interface DailyActivityResponse {
+  activity_date: string;
+  minutes_practiced: number;
+  problems_attempted: number;
+  problems_solved: number;
+  mock_tests_completed: number;
+  xp_earned: number;
+  goal_minutes: number;
+  goal_completed: boolean;
+}
+
+export interface UserGamificationResponse {
+  user_id: string;
+  total_xp: number;
+  current_level: number;
+  xp_for_current_level: number;
+  xp_for_next_level: number;
+  level_progress_pct: number;
+  current_streak: number;
+  longest_streak: number;
+  last_activity_date?: string;
+  leaderboard_opt_in: boolean;
+  display_name?: string;
+  today_activity?: DailyActivityResponse;
+  total_badges: number;
+  unlocked_badges_count: number;
+}
+
+export interface BadgeItem {
+  id: string;
+  slug: string;
+  name: string;
+  description: string;
+  category: string;
+  icon_name: string;
+  xp_reward: number;
+  is_unlocked: boolean;
+  awarded_at?: string;
+}
+
+
+export interface XPTransactionItem {
+  id: string;
+  amount: number;
+  reason: string;
+  reference_type: string;
+  reference_id: string;
+  created_at: string;
+}
+
+export interface XPTransactionPaginatedResponse {
+  items: XPTransactionItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
+export interface LeaderboardItem {
+  rank: number;
+  user_id: string;
+  display_name: string;
+  level: number;
+  weekly_xp: number;
+  total_xp: number;
+  is_current_user: boolean;
+}
+
+export interface LeaderboardResponse {
+  items: LeaderboardItem[];
+  user_rank?: number;
+  period: string;
+}
+
 export async function fetchHealthStatus(): Promise<HealthCheckResponse> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/health`, {
@@ -713,6 +788,30 @@ export async function createAdminMockTest(token: string, data: any): Promise<any
 
 export async function fetchAdminAuditLogs(token: string, page = 1, pageSize = 20): Promise<AuditLogPaginatedResponse> {
   return apiRequest<AuditLogPaginatedResponse>(`/api/v1/admin/audit-logs?page=${page}&page_size=${pageSize}`, {}, token);
+}
+
+// Gamification API Functions
+export async function fetchMyGamification(token: string): Promise<UserGamificationResponse> {
+  return apiRequest<UserGamificationResponse>("/api/v1/gamification/me", {}, token);
+}
+
+export async function updateGamificationPreferences(
+  token: string,
+  data: { leaderboard_opt_in?: boolean; display_name?: string }
+): Promise<any> {
+  return apiRequest<any>("/api/v1/gamification/preferences", { method: "PATCH", body: JSON.stringify(data) }, token);
+}
+
+export async function fetchBadges(token: string): Promise<BadgeItem[]> {
+  return apiRequest<BadgeItem[]>("/api/v1/gamification/badges", {}, token);
+}
+
+export async function fetchXPHistory(token: string, page = 1, pageSize = 20): Promise<XPTransactionPaginatedResponse> {
+  return apiRequest<XPTransactionPaginatedResponse>(`/api/v1/gamification/xp-history?page=${page}&page_size=${pageSize}`, {}, token);
+}
+
+export async function fetchLeaderboard(token: string, limit = 50): Promise<LeaderboardResponse> {
+  return apiRequest<LeaderboardResponse>(`/api/v1/leaderboard?limit=${limit}`, {}, token);
 }
 
 export async function unlockNextHint(token: string, problemId: string): Promise<Hint> {

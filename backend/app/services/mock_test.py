@@ -27,6 +27,8 @@ from app.schemas.mock_test import (
 from app.services.execution import ExecutionService
 from app.services.recommendation import RecommendationEngine
 from app.services.ai.base import AIService
+from app.services.gamification import GamificationService
+
 
 logger = logging.getLogger(__name__)
 
@@ -367,6 +369,15 @@ class MockTestService:
             session_obj.completed_at = now_utc
             await self.db.commit()
 
+            try:
+                await GamificationService.process_mock_completion(
+                    db=self.db, user_id=user.id, session=session_obj, mock=session_obj.mock_test
+                )
+                await self.db.commit()
+            except Exception as e:
+                logger.error(f"Failed to process gamification mock completion: {e}")
+
+
         return await self.get_mock_test_result(user, session_id)
 
     async def get_mock_test_result(self, user: User, session_id: uuid.UUID) -> MockTestResultResponse:
@@ -538,6 +549,15 @@ class MockTestService:
         started_at = make_aware(session_obj.started_at)
         session_obj.completed_at = started_at + timedelta(minutes=mock.duration_minutes)
         await self.db.commit()
+
+        try:
+            await GamificationService.process_mock_completion(
+                db=self.db, user_id=session_obj.user_id, session=session_obj, mock=mock
+            )
+            await self.db.commit()
+        except Exception as e:
+            logger.error(f"Failed to process gamification auto submit: {e}")
+
 
     async def _format_session_response(
         self,

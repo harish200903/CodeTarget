@@ -4,10 +4,17 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { fetchRecommendations, RecommendationItem, RecommendationListResponse } from "@/lib/api";
+import {
+  fetchRecommendations,
+  fetchMyGamification,
+  RecommendationItem,
+  RecommendationListResponse,
+  UserGamificationResponse,
+} from "@/lib/api";
 import {
   Target, Building2, Star, Code2, Gauge, Clock, LogOut, CheckCircle2,
-  User as UserIcon, Sparkles, ArrowRight, Play, Bot, AlertCircle, BarChart3, FileCode2
+  User as UserIcon, Sparkles, ArrowRight, Play, Bot, AlertCircle, BarChart3,
+  FileCode2, Flame, Award, Trophy, Zap, ShieldAlert
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -15,6 +22,7 @@ export default function DashboardPage() {
   const router = useRouter();
 
   const [recommendations, setRecommendations] = useState<RecommendationListResponse | null>(null);
+  const [gamification, setGamification] = useState<UserGamificationResponse | null>(null);
   const [recLoading, setRecLoading] = useState(true);
   const [recError, setRecError] = useState<string | null>(null);
 
@@ -29,15 +37,19 @@ export default function DashboardPage() {
     }
   }, [user, loading, router]);
 
-  // Load Personalized Recommendations
+  // Load Personalized Recommendations & Gamification
   useEffect(() => {
-    async function loadRecs() {
+    async function loadData() {
       if (!accessToken || !user || !user.onboarding_completed) return;
       setRecLoading(true);
       setRecError(null);
       try {
-        const data = await fetchRecommendations(accessToken, 5);
-        setRecommendations(data);
+        const [recData, gamiData] = await Promise.all([
+          fetchRecommendations(accessToken, 5),
+          fetchMyGamification(accessToken).catch(() => null),
+        ]);
+        setRecommendations(recData);
+        setGamification(gamiData);
       } catch (err) {
         setRecError(err instanceof Error ? err.message : "Failed to load recommendations");
       } finally {
@@ -45,7 +57,7 @@ export default function DashboardPage() {
       }
     }
 
-    loadRecs();
+    loadData();
   }, [accessToken, user]);
 
   if (loading || !user) {
@@ -73,7 +85,30 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 flex-wrap">
+          {user.role === "ADMIN" && (
+            <Link
+              href="/admin"
+              className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition-colors flex items-center gap-2 shadow"
+            >
+              <ShieldAlert className="w-4 h-4" /> Admin Console
+            </Link>
+          )}
+
+          <Link
+            href="/gamification"
+            className="px-4 py-2 rounded-xl bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 text-amber-300 font-semibold text-xs transition-colors flex items-center gap-2"
+          >
+            <Trophy className="w-4 h-4 text-amber-400" /> Badges & XP
+          </Link>
+
+          <Link
+            href="/leaderboard"
+            className="px-4 py-2 rounded-xl bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/30 text-purple-300 font-semibold text-xs transition-colors flex items-center gap-2"
+          >
+            <Award className="w-4 h-4 text-purple-400" /> Leaderboard
+          </Link>
+
           <Link
             href="/mock-tests"
             className="px-4 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 font-semibold text-xs transition-colors flex items-center gap-2"
@@ -99,244 +134,266 @@ export default function DashboardPage() {
             onClick={logout}
             className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-300 font-semibold text-xs transition-colors flex items-center gap-2"
           >
-            <LogOut className="w-3.5 h-3.5 text-red-400" /> Log Out
+            <LogOut className="w-4 h-4" /> Logout
           </button>
         </div>
       </header>
 
-      {/* Main Content */}
-      <main className="space-y-8">
-        {/* Welcome Hero Card */}
-        <div className="glass-panel rounded-2xl p-8 border border-slate-800 space-y-6">
-          <div className="flex flex-wrap items-center justify-between gap-6">
-            <div className="space-y-2">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                <CheckCircle2 className="w-3.5 h-3.5" /> Target Onboarding Complete
+      {/* Gamification Summary Widget */}
+      {gamification && (
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950/40 to-slate-900 border border-indigo-500/20 rounded-2xl p-6 flex flex-col md:flex-row items-center justify-between gap-6 shadow-xl">
+          <div className="flex items-center gap-4">
+            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400">
+              <Trophy className="w-7 h-7" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                  Level {gamification.current_level}
+                </span>
+                <span className="text-xs text-slate-400 font-mono">
+                  {gamification.total_xp} Total XP
+                </span>
               </div>
-              <h2 className="text-2xl md:text-3xl font-extrabold text-white">
-                Welcome back, {user.full_name || "Candidate"} 👋
-              </h2>
-              <p className="text-xs text-slate-400 max-w-xl leading-relaxed">
-                Your personalized company preparation workspace. Practice problem patterns curated specifically for your target recruiters.
-              </p>
+              <div className="w-48 bg-slate-800 rounded-full h-2 mt-2 overflow-hidden border border-slate-700">
+                <div
+                  className="bg-gradient-to-r from-amber-500 to-indigo-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${gamification.level_progress_pct}%` }}
+                />
+              </div>
+              <span className="text-[10px] text-slate-400 font-mono mt-1 block">
+                {gamification.level_progress_pct}% to Level {gamification.current_level + 1}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-6 divide-x divide-slate-800 text-xs">
+            <div className="flex items-center gap-2.5 pl-4">
+              <Flame className="w-5 h-5 text-amber-400 animate-pulse" />
+              <div>
+                <span className="text-slate-400 font-medium block text-[11px]">Current Streak</span>
+                <span className="text-white font-black text-sm">{gamification.current_streak} Days 🔥</span>
+              </div>
             </div>
 
-            <div className="flex items-center gap-3">
-              <Link
-                href="/mock-tests"
-                className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
-              >
-                <span>Take Mock Assessment</span>
-                <ArrowRight className="w-4 h-4" />
-              </Link>
+            <div className="flex items-center gap-2.5 pl-6">
+              <Target className="w-5 h-5 text-indigo-400" />
+              <div>
+                <span className="text-slate-400 font-medium block text-[11px]">Today's Practice</span>
+                <span className="text-white font-black text-sm">
+                  {gamification.today_activity?.minutes_practiced || 0} / {gamification.today_activity?.goal_minutes || 30} min
+                  {gamification.today_activity?.goal_completed && " ✓"}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2.5 pl-6">
+              <Award className="w-5 h-5 text-purple-400" />
+              <div>
+                <span className="text-slate-400 font-medium block text-[11px]">Unlocked Badges</span>
+                <span className="text-white font-black text-sm">
+                  {gamification.unlocked_badges_count} / {gamification.total_badges} 🏆
+                </span>
+              </div>
+            </div>
+          </div>
+
+          <Link
+            href="/gamification"
+            className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs flex items-center gap-2 transition-all shadow-md shadow-indigo-600/20"
+          >
+            <span>Gamification Hub</span>
+            <ArrowRight className="w-3.5 h-3.5" />
+          </Link>
+        </div>
+      )}
+
+      {/* Main Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Profile Card */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+              <UserIcon className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Target Profile</h2>
+              <p className="text-xs text-slate-400">{user.email}</p>
+            </div>
+          </div>
+
+          <div className="space-y-3 pt-2 text-xs">
+            <div className="flex justify-between items-center py-1.5 border-b border-slate-800">
+              <span className="text-slate-400 flex items-center gap-1.5"><Gauge className="w-3.5 h-3.5 text-slate-500" /> Skill Level</span>
+              <span className="font-semibold text-slate-200 uppercase bg-slate-800 px-2 py-0.5 rounded text-[10px]">{user.skill_level}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-slate-800">
+              <span className="text-slate-400 flex items-center gap-1.5"><Code2 className="w-3.5 h-3.5 text-slate-500" /> Language</span>
+              <span className="font-semibold text-indigo-400 uppercase bg-indigo-950/40 border border-indigo-800/40 px-2 py-0.5 rounded text-[10px]">{user.preferred_language}</span>
+            </div>
+            <div className="flex justify-between items-center py-1.5 border-b border-slate-800">
+              <span className="text-slate-400 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-500" /> Daily Goal</span>
+              <span className="font-semibold text-slate-200">{user.daily_goal_minutes} mins/day</span>
             </div>
           </div>
         </div>
 
-        {/* Mock Tests Quick Action Card */}
-        <section className="glass-card rounded-2xl p-6 border border-slate-800 space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2">
-                <FileCode2 className="w-5 h-5 text-indigo-400" />
-                <h3 className="text-base font-extrabold text-white">Mock Company Coding Tests</h3>
-              </div>
-              <p className="text-xs text-slate-400">
-                Practice under timed assessment conditions simulating company coding rounds.
-              </p>
-            </div>
-
-            <Link
-              href="/mock-tests"
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
-            >
-              <span>Explore Mock Catalog</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
-        </section>
-
-        {/* Recommended For You Section */}
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center space-x-2.5">
-              <div className="p-2 rounded-xl bg-gradient-to-tr from-indigo-500 to-violet-500 text-white shadow-md shadow-indigo-500/20">
-                <Sparkles className="w-4 h-4" />
+        {/* Target Companies */}
+        <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4 md:col-span-2">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+                <Building2 className="w-5 h-5" />
               </div>
               <div>
-                <h3 className="text-lg font-extrabold text-white tracking-tight flex items-center gap-2">
-                  <span>Recommended For You</span>
-                </h3>
-                <p className="text-xs text-slate-400">
-                  {recommendations?.source === "ai"
-                    ? "Prioritized using AI activity analysis & target company patterns"
-                    : "Curated based on your target onboarding profile"}
-                </p>
+                <h2 className="text-sm font-bold text-white">Target Companies</h2>
+                <p className="text-xs text-slate-400">Targeting company interview standards</p>
               </div>
             </div>
-
-            {recommendations?.focus_topics && recommendations.focus_topics.length > 0 && (
-              <div className="flex items-center gap-2 text-xs">
-                <span className="text-slate-400 font-semibold">Current Focus:</span>
-                <div className="flex flex-wrap gap-1.5">
-                  {recommendations.focus_topics.map((topic, i) => (
-                    <span
-                      key={i}
-                      className="px-2.5 py-0.5 rounded-full bg-indigo-950/60 text-indigo-300 border border-indigo-800/40 text-[11px] font-bold"
-                    >
-                      {topic}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
+            <Link href="/onboarding" className="text-xs text-indigo-400 hover:underline">Edit Selection</Link>
           </div>
 
-          {/* Recommendation Cards */}
-          {recLoading ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="p-6 bg-slate-900/60 border border-slate-800 rounded-2xl animate-pulse space-y-4">
-                  <div className="h-4 bg-slate-800 rounded w-2/3" />
-                  <div className="h-3 bg-slate-800 rounded w-full" />
-                  <div className="h-8 bg-slate-800 rounded" />
-                </div>
-              ))}
-            </div>
-          ) : recError ? (
-            <div className="p-6 bg-rose-950/30 border border-rose-800/30 rounded-2xl text-rose-300 text-xs flex items-center space-x-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{recError}</span>
-            </div>
-          ) : !recommendations || recommendations.items.length === 0 ? (
-            <div className="p-8 text-center bg-slate-900/60 border border-slate-800 rounded-2xl text-slate-400 text-xs space-y-2">
-              <Sparkles className="w-8 h-8 text-indigo-400 mx-auto opacity-50" />
-              <p className="font-semibold text-slate-300">You've completed all recommended problems in your target pool!</p>
-              <p className="text-[11px] text-slate-500">Explore more problems directly from the catalog.</p>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {recommendations.items.map((item: RecommendationItem) => (
-                <div
-                  key={item.problem.id}
-                  className="glass-card rounded-2xl p-6 border border-slate-800 hover:border-indigo-500/50 transition-all flex flex-col justify-between space-y-4 group"
-                >
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        {item.problem.difficulty}
-                      </span>
-                      {item.problem.user_status === "ATTEMPTED" && (
-                        <span className="text-[10px] text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 rounded-full font-semibold">
-                          Attempted
-                        </span>
-                      )}
-                    </div>
-
-                    <h4 className="text-base font-bold text-white group-hover:text-indigo-400 transition-colors">
-                      {item.problem.title}
-                    </h4>
-
-                    <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 leading-relaxed font-sans">
-                      <span className="text-indigo-400 font-semibold block mb-0.5 text-[10px] uppercase tracking-wider">
-                        {item.reason_type.replace("_", " ")}
-                      </span>
-                      {item.reason}
-                    </div>
-
-                    <div className="flex flex-wrap gap-1">
-                      {item.problem.topics.map((t) => (
-                        <span key={t.id} className="text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded">
-                          {t.name}
-                        </span>
-                      ))}
-                    </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+            {user.target_companies.map((tc) => (
+              <div key={tc.id} className="p-3 rounded-xl bg-slate-800/60 border border-slate-700/60 flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2.5">
+                  <Star className={`w-4 h-4 ${tc.priority === 1 ? "text-amber-400 fill-amber-400" : "text-slate-500"}`} />
+                  <div>
+                    <span className="font-bold text-white block">{tc.company.name}</span>
+                    <span className="text-[10px] text-slate-400">{tc.company.tier} Tier</span>
                   </div>
-
-                  <Link
-                    href={`/solve/${item.problem.slug}`}
-                    className="w-full py-2.5 bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 rounded-xl text-xs font-bold transition-all text-center flex items-center justify-center space-x-1.5"
-                  >
-                    <Play className="w-3.5 h-3.5 fill-current" />
-                    <span>Solve Problem</span>
-                  </Link>
                 </div>
-              ))}
-            </div>
-          )}
-        </section>
-
-        {/* Persisted Onboarding Overview Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="glass-card rounded-2xl p-6 border border-slate-800 space-y-3">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Building2 className="w-4 h-4 text-indigo-400" /> Target Companies
-              </span>
-              <span className="text-slate-200 font-bold">{user.target_companies?.length || 0}</span>
-            </div>
-
-            <div className="space-y-1.5 pt-1">
-              {user.target_companies?.map((tc) => (
                 <Link
-                  key={tc.id}
-                  href={`/company-preparation`}
-                  className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800/80 transition-colors"
+                  href={`/company-preparation?company=${tc.company.id}`}
+                  className="px-2.5 py-1 rounded bg-indigo-950/60 border border-indigo-800/40 text-indigo-300 text-[10px] font-semibold hover:bg-indigo-900/60"
                 >
-                  <span className="font-semibold text-slate-200">{tc.company.name}</span>
-                  {tc.priority === 1 ? (
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-bold flex items-center gap-1">
-                      <Star className="w-2.5 h-2.5 fill-current" /> Primary
-                    </span>
-                  ) : (
-                    <span className="text-[10px] text-slate-500">Secondary</span>
-                  )}
+                  Prep Profile →
                 </Link>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Code2 className="w-4 h-4 text-emerald-400" /> Preferred Language
-              </span>
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-white capitalize">{user.preferred_language}</h3>
-              <p className="text-[11px] text-slate-400 mt-1">Configured for Monaco code editor & Judge0 runner</p>
-            </div>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Gauge className="w-4 h-4 text-amber-400" /> Skill Level
-              </span>
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-white capitalize">{user.skill_level.toLowerCase()}</h3>
-              <p className="text-[11px] text-slate-400 mt-1">Calibrated problem difficulty spectrum</p>
-            </div>
-          </div>
-
-          <div className="glass-card rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
-            <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
-              <span className="flex items-center gap-1.5">
-                <Clock className="w-4 h-4 text-purple-400" /> Daily Target Goal
-              </span>
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-white">{user.daily_goal_minutes} mins</h3>
-              <p className="text-[11px] text-slate-400 mt-1">Daily practice commitment</p>
-            </div>
+              </div>
+            ))}
           </div>
         </div>
-      </main>
+      </div>
 
-      {/* Footer */}
-      <footer className="w-full text-center text-xs text-slate-500 border-t border-slate-800/80 pt-6">
-        CodeTarget Platform &copy; {new Date().getFullYear()} — Company-Specific Preparation Platform
+      {/* Mock Tests Card */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+              <FileCode2 className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white">Mock Company Coding Tests</h2>
+              <p className="text-xs text-slate-400">Simulate company timed online assessment coding rounds</p>
+            </div>
+          </div>
+          <Link href="/mock-tests" className="text-xs text-indigo-400 hover:underline font-semibold">
+            View All Mock Tests →
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          {user.target_companies.slice(0, 3).map((tc) => (
+            <div key={tc.id} className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 space-y-2 text-xs">
+              <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                {tc.company.name}
+              </span>
+              <h3 className="font-bold text-white text-xs">{tc.company.name}-Style Mock Test</h3>
+              <p className="text-[11px] text-slate-400">Timed 60-min assessment based on your selected target profile.</p>
+              <Link
+                href="/mock-tests"
+                className="inline-block pt-1 text-[11px] font-semibold text-indigo-400 hover:underline"
+              >
+                Start Assessment →
+              </Link>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Recommended Practice Problems Section */}
+      <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-indigo-500/10 text-indigo-400">
+              <Sparkles className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white flex items-center gap-2">
+                Personalized Practice Recommendations
+                {recommendations?.source === "AI_POWERED" && (
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-indigo-500/10 text-indigo-400 border border-indigo-500/20">
+                    Gemini AI
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-slate-400">Targeted DSA problems based on your target companies and activity</p>
+            </div>
+          </div>
+
+          <Link href="/problems" className="text-xs font-semibold text-indigo-400 hover:underline flex items-center gap-1">
+            Browse Catalog <ArrowRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {recLoading ? (
+          <div className="space-y-3 py-4">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="h-16 bg-slate-800/50 animate-pulse rounded-xl" />
+            ))}
+          </div>
+        ) : recError ? (
+          <div className="p-4 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span>{recError}</span>
+          </div>
+        ) : recommendations?.items.length === 0 ? (
+          <p className="text-xs text-slate-400 py-4 text-center">No problem recommendations available.</p>
+        ) : (
+          <div className="space-y-3">
+            {recommendations?.items.map((item: RecommendationItem) => (
+              <div
+                key={item.problem.id}
+                className="p-4 rounded-xl bg-slate-800/40 border border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:border-slate-600 transition-colors"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-bold text-white text-xs">{item.problem.title}</span>
+                    <span
+                      className={`px-2 py-0.5 rounded text-[10px] font-extrabold uppercase ${
+                        item.problem.difficulty === "EASY"
+                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          : item.problem.difficulty === "MEDIUM"
+                          ? "bg-amber-500/10 text-amber-400 border border-amber-500/20"
+                          : "bg-rose-500/10 text-rose-400 border border-rose-500/20"
+                      }`}
+                    >
+                      {item.problem.difficulty}
+                    </span>
+                    {item.problem.user_status === "SOLVED" && (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-950 text-emerald-300 flex items-center gap-1">
+                        <CheckCircle2 className="w-3 h-3" /> Solved
+                      </span>
+                    )}
+                  </div>
+
+                  <p className="text-[11px] text-slate-400">{item.reason}</p>
+                </div>
+
+                <Link
+                  href={`/solve/${item.problem.slug}`}
+                  className="px-3.5 py-1.5 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-1.5 self-start sm:self-center shadow"
+                >
+                  <Play className="w-3 h-3 fill-white" /> Solve Now
+                </Link>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <footer className="text-center text-xs text-slate-500 pt-4 border-t border-slate-800/60">
+        CodeTarget Phase 7 — Gamification, Streaks & Engagement Production Ready
       </footer>
     </div>
   );

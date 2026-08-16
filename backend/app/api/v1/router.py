@@ -1,5 +1,9 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, users, companies, problems, submissions, ai_hints, ai_code_review, recommendations, company_prep, mock_tests, admin
+from app.api.v1.endpoints import (
+    health, auth, users, companies, problems, submissions,
+    ai_hints, ai_code_review, recommendations, company_prep,
+    mock_tests, admin, gamification, leaderboard
+)
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["Health"])
@@ -14,3 +18,5 @@ api_router.include_router(ai_code_review.router, prefix="/ai/code-review", tags=
 api_router.include_router(recommendations.router, prefix="/recommendations", tags=["Personalized Recommendations"])
 api_router.include_router(mock_tests.router, prefix="/mock-tests", tags=["Mock Company Coding Tests"])
 api_router.include_router(admin.router, prefix="/admin", tags=["Admin & Content Management"])
+api_router.include_router(gamification.router, prefix="/gamification", tags=["Gamification & Streaks"])
+api_router.include_router(leaderboard.router, prefix="/leaderboard", tags=["Weekly Leaderboard"])

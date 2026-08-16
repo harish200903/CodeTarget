@@ -1,11 +1,13 @@
-import math
-import uuid
-import time
 import logging
-from typing import Optional
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+import math
+import time
+import uuid
+from typing import List, Optional
+from fastapi import APIRouter, Depends, status, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func, and_
+from sqlalchemy.future import select
+from sqlalchemy.orm import selectinload
+from sqlalchemy import func, and_, or_
 
 from app.core.database import get_db
 from app.core.redis import get_redis
@@ -14,12 +16,17 @@ from app.models.user import User
 from app.models.problem import Problem, TestCase
 from app.models.submission import Submission, UserProblemProgress, SubmissionStatus, ProgressStatus
 from app.schemas.submission import (
-    RunSampleRequest, SubmitSolutionRequest, SubmissionOut, SubmissionPaginatedResponse
+    RunSampleRequest,
+    SubmitSolutionRequest,
+    SubmissionOut,
+    SubmissionPaginatedResponse
 )
 from app.services.execution import get_execution_service, ExecutionService, BatchExecutionResult
+from app.services.gamification import GamificationService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
-logger = logging.getLogger(__name__)
 
 
 async def check_rate_limit(user_id: uuid.UUID, redis_client) -> None:
@@ -52,10 +59,10 @@ async def run_sample_code(
     body: RunSampleRequest,
     current_user: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    redis_client = Depends(get_redis),
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
     """Dry-run code against public sample test cases without persisting a permanent submission."""
-    # 1. Fetch problem and sample test cases
     stmt = select(Problem).where(Problem.id == body.problem_id)
     res = await db.execute(stmt)
     problem = res.scalar_one_or_none()
@@ -67,7 +74,6 @@ async def run_sample_code(
     sample_cases = tc_res.scalars().all()
 
     if not sample_cases:
-        # Fallback to all test cases if no explicit sample flags
         all_tc_stmt = select(TestCase).where(TestCase.problem_id == body.problem_id)
         all_tc_res = await db.execute(all_tc_stmt)
         sample_cases = all_tc_res.scalars().all()
@@ -77,7 +83,6 @@ async def run_sample_code(
         for tc in sample_cases
     ]
 
-    # 2. Execute via ExecutionService abstraction
     return await execution_service.run_sample_test_cases(
         language=body.language,
         source_code=body.code,
@@ -93,12 +98,10 @@ async def submit_solution(
     redis_client = Depends(get_redis),
     execution_service: ExecutionService = Depends(get_execution_service)
 ):
-    """Submit code solution against hidden evaluation test cases and update progress."""
-    # 1. Rate limiting check
+    """Submit code solution against hidden evaluation test cases and update progress & gamification."""
     if redis_client:
         await check_rate_limit(current_user.id, redis_client)
 
-    # 2. Fetch problem and hidden evaluation test cases
     stmt = select(Problem).where(Problem.id == body.problem_id)
     res = await db.execute(stmt)
     problem = res.scalar_one_or_none()
@@ -114,14 +117,12 @@ async def submit_solution(
         for tc in test_cases
     ]
 
-    # 3. Execute through ExecutionService abstraction
     exec_result = await execution_service.execute_submission(
         language=body.language,
         source_code=body.code,
         test_cases=formatted_test_cases
     )
 
-    # 4. Create Submission record
     submission = Submission(
         user_id=current_user.id,
         problem_id=body.problem_id,
@@ -137,7 +138,6 @@ async def submit_solution(
     db.add(submission)
     await db.flush()
 
-    # 5. Update UserProblemProgress
     prog_stmt = select(UserProblemProgress).where(
         and_(
             UserProblemProgress.user_id == current_user.id,
@@ -146,6 +146,8 @@ async def submit_solution(
     )
     prog_res = await db.execute(prog_stmt)
     user_prog = prog_res.scalar_one_or_none()
+
+    prev_status = user_prog.status if user_prog else ProgressStatus.UNATTEMPTED
 
     if not user_prog:
         user_prog = UserProblemProgress(
@@ -165,7 +167,21 @@ async def submit_solution(
     await db.commit()
     await db.refresh(submission)
 
-    # Invalidate recommendation & company prep cache for user
+    # Process Gamification (XP, Level, Streak, Badges)
+    if exec_result.overall_status == SubmissionStatus.ACCEPTED:
+        try:
+            is_first_solve = (prev_status != ProgressStatus.SOLVED)
+            await GamificationService.process_problem_solve(
+                db=db,
+                user_id=current_user.id,
+                problem=problem,
+                is_first_solve=is_first_solve
+            )
+            await db.commit()
+        except Exception as e:
+            logger.error(f"Failed to process gamification solve: {e}")
+
+    # Invalidate cache
     if redis_client:
         try:
             keys = await redis_client.keys(f"recommendations:user:{current_user.id}:*")
