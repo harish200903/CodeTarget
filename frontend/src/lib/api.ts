@@ -394,6 +394,36 @@ export interface MockTestHistoryItem {
   completed_at?: string;
 }
 
+// Admin Schemas
+export interface AdminDashboardSummary {
+  companies_count: number;
+  topics_count: number;
+  problems_count: number;
+  active_problems_count: number;
+  mock_tests_count: number;
+  total_test_cases: number;
+  total_hints: number;
+}
+
+export interface AuditLogItem {
+  id: string;
+  user_id?: string;
+  user_email?: string;
+  action: string;
+  resource_type: string;
+  resource_id?: string;
+  details?: Record<string, any>;
+  timestamp: string;
+}
+
+export interface AuditLogPaginatedResponse {
+  items: AuditLogItem[];
+  total: number;
+  page: number;
+  page_size: number;
+  total_pages: number;
+}
+
 export async function fetchHealthStatus(): Promise<HealthCheckResponse> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/health`, {
@@ -600,6 +630,89 @@ export async function fetchMockTestResult(token: string, sessionId: string): Pro
 
 export async function fetchMockTestHistory(token: string): Promise<MockTestHistoryItem[]> {
   return apiRequest<MockTestHistoryItem[]>("/api/v1/mock-tests/history", {}, token);
+}
+
+// Admin API Functions
+export async function fetchAdminDashboardSummary(token: string): Promise<AdminDashboardSummary> {
+  return apiRequest<AdminDashboardSummary>("/api/v1/admin/dashboard", {}, token);
+}
+
+export async function fetchAdminCompanies(token: string): Promise<any[]> {
+  return apiRequest<any[]>("/api/v1/admin/companies", {}, token);
+}
+
+export async function createAdminCompany(token: string, data: any): Promise<any> {
+  return apiRequest<any>("/api/v1/admin/companies", { method: "POST", body: JSON.stringify(data) }, token);
+}
+
+export async function updateAdminCompany(token: string, id: string, data: any): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/companies/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token);
+}
+
+export async function fetchAdminTopics(token: string): Promise<any[]> {
+  return apiRequest<any[]>("/api/v1/admin/topics", {}, token);
+}
+
+export async function createAdminTopic(token: string, data: any): Promise<any> {
+  return apiRequest<any>("/api/v1/admin/topics", { method: "POST", body: JSON.stringify(data) }, token);
+}
+
+export async function updateAdminTopic(token: string, id: string, data: any): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/topics/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token);
+}
+
+export async function fetchAdminProblems(token: string, params: { page?: number; page_size?: number; search?: string; difficulty?: string } = {}): Promise<any> {
+  const query = new URLSearchParams();
+  if (params.page) query.set("page", params.page.toString());
+  if (params.page_size) query.set("page_size", params.page_size.toString());
+  if (params.search) query.set("search", params.search);
+  if (params.difficulty) query.set("difficulty", params.difficulty);
+
+  return apiRequest<any>(`/api/v1/admin/problems?${query.toString()}`, {}, token);
+}
+
+export async function createAdminProblem(token: string, data: any): Promise<any> {
+  return apiRequest<any>("/api/v1/admin/problems", { method: "POST", body: JSON.stringify(data) }, token);
+}
+
+export async function fetchAdminProblemDetail(token: string, id: string): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/problems/${id}`, {}, token);
+}
+
+export async function updateAdminProblem(token: string, id: string, data: any): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/problems/${id}`, { method: "PATCH", body: JSON.stringify(data) }, token);
+}
+
+export async function deactivateAdminProblem(token: string, id: string): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/problems/${id}`, { method: "DELETE" }, token);
+}
+
+export async function createAdminTestCase(token: string, problemId: string, data: any): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/problems/${problemId}/test-cases`, { method: "POST", body: JSON.stringify(data) }, token);
+}
+
+export async function deleteAdminTestCase(token: string, testCaseId: string): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/test-cases/${testCaseId}`, { method: "DELETE" }, token);
+}
+
+export async function createAdminHint(token: string, problemId: string, data: any): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/problems/${problemId}/hints`, { method: "POST", body: JSON.stringify(data) }, token);
+}
+
+export async function deleteAdminHint(token: string, hintId: string): Promise<any> {
+  return apiRequest<any>(`/api/v1/admin/hints/${hintId}`, { method: "DELETE" }, token);
+}
+
+export async function fetchAdminMockTests(token: string): Promise<any[]> {
+  return apiRequest<any[]>("/api/v1/admin/mock-tests", {}, token);
+}
+
+export async function createAdminMockTest(token: string, data: any): Promise<any> {
+  return apiRequest<any>("/api/v1/admin/mock-tests", { method: "POST", body: JSON.stringify(data) }, token);
+}
+
+export async function fetchAdminAuditLogs(token: string, page = 1, pageSize = 20): Promise<AuditLogPaginatedResponse> {
+  return apiRequest<AuditLogPaginatedResponse>(`/api/v1/admin/audit-logs?page=${page}&page_size=${pageSize}`, {}, token);
 }
 
 export async function unlockNextHint(token: string, problemId: string): Promise<Hint> {
