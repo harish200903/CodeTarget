@@ -29,8 +29,9 @@ async def get_health_status(db: AsyncSession = Depends(get_db)):
             services["database"] = ServiceHealth(status="unhealthy", message="Unexpected query output")
             overall_status = "degraded"
     except Exception as e:
-        services["database"] = ServiceHealth(status="unhealthy", message=f"Database error: {str(e)}")
+        services["database"] = ServiceHealth(status="unhealthy", message="Database connection failed")
         overall_status = "degraded"
+
 
     # 2. Check Redis Connectivity
     redis_healthy = await check_redis_health()

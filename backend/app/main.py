@@ -14,13 +14,19 @@ app = FastAPI(
 
 # CORS Configuration
 if settings.BACKEND_CORS_ORIGINS:
+    origins = [str(origin) for origin in settings.BACKEND_CORS_ORIGINS]
+    if settings.ENVIRONMENT != "production":
+        origins.append("http://localhost:3000")
+        origins.append("http://127.0.0.1:3000")
+
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[str(origin) for origin in settings.BACKEND_CORS_ORIGINS] + ["*"],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
 
 # Include API v1 router
 app.include_router(api_router, prefix="/api/v1")

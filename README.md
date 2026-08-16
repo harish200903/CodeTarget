@@ -1,130 +1,192 @@
-# CodeTarget 🎯
+# CodeTarget — Company-Specific Coding-Round Preparation Engine
 
-**Company-Specific Coding-Round Preparation Platform**
-
-CodeTarget is a production-grade full-stack web application designed for company-specific interview preparation. Unlike generic competitive programming platforms, CodeTarget personalizes problem recommendations, mock tests, hints, and readiness diagnostics based on real hiring patterns of top technical recruiters (with initial focus on TCS, Cognizant, Infosys, Accenture, Wipro, Deloitte, Capgemini, Zoho, Amazon, and Microsoft).
+CodeTarget is a production-ready, company-focused coding practice platform designed to prepare candidates for online assessments and technical interview rounds at target companies (e.g., TCS, Cognizant, Infosys, Accenture, Wipro, Deloitte, Capgemini, Zoho, Amazon, Microsoft).
 
 ---
 
-## 🏗️ Architecture & Technology Stack
-
-- **Frontend**: Next.js 14+ (App Router), TypeScript, Tailwind CSS, Monaco Editor (`@monaco-editor/react`), TanStack Query v5.
-- **Backend**: Python 3.11+, FastAPI, Pydantic v2, SQLAlchemy 2.0 (Async), AsyncPG, Alembic migrations.
-- **Database**: PostgreSQL 16 (Fully normalized relational schema).
-- **Caching & Task Queue**: Redis 7.
-- **Code Execution Subsystem**: Isolated Judge0 integration behind internal `ExecutionService` backend abstraction.
-- **AI Subsystem**: Provider-independent `AIService` abstraction with Google Gemini 2.5 Flash initial provider (`GeminiAIService`).
-
----
-
-## ⚡ Supported Programming Languages (v1)
-
-- **Python 3**
-- **Java**
-- **C++**
-
----
-
-## 🤖 AI Service Infrastructure Architecture (Phase 4A)
-
-CodeTarget uses a provider-independent AI architecture:
+## 🏗️ System Architecture
 
 ```text
-Frontend (Next.js)
-       ↓
-FastAPI Backend (Future Purpose-Specific APIs: /api/v1/ai/*)
-       ↓
-AIService (Abstract Base Class Interface)
-       ↓
-GeminiAIService (Google Gemini 2.5 Flash Concrete Provider)
-       ↓
-Google Gemini API (Official google-genai SDK)
+                                  Internet
+                                     |
+                                     v
+                               HTTPS / Domain
+                                     |
+                       +-------------+-------------+
+                       |                           |
+                       v                           v
+              Next.js Frontend              FastAPI Backend
+              (TypeScript + Tailwind)       (Pydantic + SQLAlchemy)
+                                                   |
+                             +---------------------+---------------------+
+                             |                     |                     |
+                             v                     v                     v
+                        PostgreSQL               Redis             External APIs
+                    (Authoritative DB)     (Cache/Rate Limit)      /           \
+                                                                 /             \
+                                                              Judge0          Gemini
 ```
 
-### Key AI Features & Design Principles:
-1. **Provider Isolation**: Future AI features depend strictly on `AIService`, allowing seamless provider migration without changing application code.
-2. **Environment Configuration**: Controlled via `GEMINI_API_KEY`, `GEMINI_MODEL` (default: `gemini-2.5-flash`), `AI_ENABLED` (default: `false`), `AI_REQUEST_TIMEOUT_SECONDS` (15s), `AI_MAX_INPUT_CHARS` (8000), `AI_RATE_LIMIT_PER_MINUTE` (10).
-3. **Structured Outputs**: All responses validated using Pydantic schemas (`AIHintResponse`, `AICodeReviewResponse`, `AIErrorExplanationResponse`, `AIRecommendationResponse`).
-4. **Prompt Security**: Strict prompt delimiters (`<USER_CODE>`, `<PROBLEM_SPEC>`, `<ERROR_OUTPUT>`) defend against prompt injection attacks. User input cannot override system instructions.
-5. **Fail-Safe Operation**: If AI is disabled or Gemini API is unreachable, the application degrades gracefully. Primary problem solving, code execution, and Judge0 function without AI.
-6. **Rate Limiting & Caching**: Redis sliding window limits requests to 10/min/user. SHA256 caching caches deterministic requests.
-7. **Offline Testing**: Pytest test suite runs 100% offline using mocked provider interfaces (no live Gemini API key required).
+- **Frontend**: Next.js 14 (App Router), TypeScript, TailwindCSS, Monaco Code Editor.
+- **Backend**: FastAPI, Pydantic V2, SQLAlchemy 2.0 (AsyncIO), Alembic migrations.
+- **Database**: PostgreSQL 16 (Authoritative persistence for users, catalog, progress, sessions, XP ledger).
+- **Cache & Rate Limiter**: Redis 7 (Caching for recommendations, preparation scores, AI hints; rate limiting for submissions and Gemini API).
+- **Code Execution Engine**: Judge0 API abstraction (supports Python, Java, C++ multi-language evaluation).
+- **AI Infrastructure**: Google Gemini 2.5 Flash (`AIService` abstraction with prompt injection protection, caching, rate limiting, and structured response parsing).
 
 ---
 
-## 📁 Repository Structure
+## 🚀 Quick Start — Local Development
 
-```
-.
-├── docker-compose.yml          # Container orchestration (Postgres, Redis, FastAPI, Next.js)
-├── .env.example                # Environment variables template
-├── README.md                   # Project documentation
-├── backend/                    # FastAPI backend service
-│   ├── alembic/                # Database migrations
-│   ├── app/
-│   │   ├── api/                # API router & endpoints
-│   │   ├── core/               # Configuration, Database & Redis managers
-│   │   ├── models/             # Normalized SQLAlchemy ORM models
-│   │   ├── schemas/            # Pydantic data & AI response schemas
-│   │   └── services/           # ExecutionService & AIService infrastructure
-│   └── tests/                  # Pytest test suite (100% pass rate)
-└── frontend/                   # Next.js 14 frontend application
-    ├── src/
-    │   ├── app/                # Next.js App Router pages
-    │   ├── components/         # React UI components
-    │   └── lib/                # API client & utility helpers
-    └── public/                 # Static assets
-```
-
----
-
-## 🚀 Local Setup Instructions
-
-### 1. Prerequisites
+### Prerequisites
+- Docker & Docker Compose (v2.0+)
 - Python 3.11+
-- Node.js 18+ & npm
-- Docker & Docker Compose (Optional for local container running)
+- Node.js 20+
 
-### 2. Local Backend Setup
+### Option 1: Docker Compose (Recommended for Dev)
 ```bash
+# 1. Clone repository
+git clone https://github.com/harish200903/CodeTarget.git
+cd CodeTarget
+
+# 2. Copy environment file
+cp .env.example .env
+
+# 3. Start full stack (PostgreSQL, Redis, Backend, Frontend)
+docker compose up --build -d
+
+# 4. Run Alembic database migrations
+docker compose exec backend alembic upgrade head
+
+# 5. Access applications
+# Frontend: http://localhost:3000
+# Backend API & Docs: http://localhost:8000/docs
+```
+
+### Option 2: Manual Local Setup
+```bash
+# Backend Setup
 cd backend
 python -m venv .venv
-# On Windows PowerShell:
-.\.venv\Scripts\Activate.ps1
-# On Linux/macOS:
-# source .venv/bin/activate
-
+source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 pip install -r requirements.txt
+alembic upgrade head
 uvicorn app.main:app --reload --port 8000
-```
-- Interactive API Documentation: [http://localhost:8000/docs](http://localhost:8000/docs)
-- Health Endpoint: [http://localhost:8000/api/v1/health](http://localhost:8000/api/v1/health)
 
-### 3. Local Frontend Setup
-```bash
+# Frontend Setup (in new terminal)
 cd frontend
 npm install
 npm run dev
 ```
-- Web Application: [http://localhost:3000](http://localhost:3000)
 
 ---
 
-## 🧪 Testing
+## 🔐 Production Deployment & Configuration Guide
 
-- **Backend Pytest**:
-  ```bash
-  cd backend
-  pytest
-  ```
+### 1. Recommended Production Infrastructure Target
+- **Frontend**: Vercel / AWS Amplify / Cloudflare Pages / Railway (`node server.js` standalone build).
+- **Backend**: AWS ECS / Render / Railway / DigitalOcean App Platform (FastAPI with Uvicorn/Gunicorn ASGI server).
+- **PostgreSQL**: Managed PostgreSQL (AWS RDS / Supabase / Neon / Render Postgres) with SSL enabled.
+- **Redis**: Managed Redis (Upstash / AWS ElastiCache / Redis Cloud) with TLS and authentication password.
+- **Judge0**: Self-hosted Judge0 instance or RapidAPI / Judge0 Cloud.
+- **Gemini**: Google Cloud Vertex AI / Google AI Studio API Key.
+
+### 2. Production Environment Variables Checklist
+
+| Variable Name | Purpose | Production Requirement |
+|---|---|---|
+| `ENVIRONMENT` | Operating Mode | Set to `production` |
+| `SECRET_KEY` | JWT Secret Key | High-entropy 64+ char random string |
+| `DATABASE_URL` | PostgreSQL Async Connection | `postgresql+asyncpg://user:pass@host:5432/dbname?ssl=require` |
+| `REDIS_URL` | Redis Cache Connection | `rediss://:password@host:6379/0` |
+| `BACKEND_CORS_ORIGINS` | Allowed Frontend Origins | `["https://app.codetarget.com"]` (NO wildcard `*`) |
+| `NEXT_PUBLIC_API_URL` | Frontend API Target | `https://api.codetarget.com` |
+| `GEMINI_API_KEY` | Google Gemini API Key | Backend-only (Never expose in frontend) |
+| `JUDGE0_URL` | Judge0 Endpoint | `https://judge0.yourdomain.com` |
+| `JUDGE0_API_KEY` | Judge0 Authorization | Backend-only |
+| `AI_ENABLED` | Toggle Gemini AI Features | `true` |
+
+### 3. Step-by-Step Production Deployment Order
+1. **Provision Databases**: Provision managed PostgreSQL 16 and Redis 7 instances.
+2. **Execute Schema Migrations**:
+   ```bash
+   cd backend
+   alembic upgrade head
+   ```
+3. **Deploy FastAPI Backend**: Launch backend container/service with production environment variables and `ENVIRONMENT=production`.
+4. **Verify Health Endpoint**: Query `https://api.codetarget.com/api/v1/health` (must return `status: "ok"` with healthy database and Redis statuses).
+5. **Deploy Next.js Frontend**: Deploy Next.js production build (`npm run build`).
+6. **Configure SSL & Custom Domain**: Enable HTTPS on custom domain routes and configure CORS origins.
 
 ---
 
-## 🛡️ Data Source Verification Labels
+## 🛡️ Database Migrations, Backups & Rollback Plan
 
-Problem-company associations track verified intelligence sources:
-- `OFFICIAL`: Sourced directly from official recruiter sample tests/assessments.
-- `VERIFIED`: Sourced from confirmed recent candidate interview experiences.
-- `CURATED`: Expertly compiled by technical interview coaches.
-- `COMMUNITY_REPORTED`: Submitted and crowd-verified by recent applicants.
-- `PATTERN_BASED`: Derived from established recruiter topic distributions.
+### Safe Migration Procedure
+- Always run database migrations using `alembic upgrade head` before starting new backend application versions.
+- All migrations (`001` through `010`) are additive and idempotent to prevent data loss.
+
+### Production Database Backup Strategy
+- **Automated Daily Backups**: Enable managed PostgreSQL provider's automated daily snapshot backups with a 30-day retention window.
+- **Point-In-Time Recovery (PITR)**: Enable write-ahead logging (WAL) archiving for 7-day point-in-time recovery.
+- **Manual Snapshot**: Create a manual DB snapshot prior to running any major schema migration.
+
+### Emergency Rollback Strategy
+1. **Application Rollback**: Revert backend and frontend deployments to the previous stable release commit hash.
+2. **Database Rollback**: If a schema migration must be reverted, execute `alembic downgrade -1` (only if migration is forward-compatible) or restore PostgreSQL to pre-migration snapshot.
+
+---
+
+## 🔑 Secure Administrator Account Bootstrapping
+
+To create the initial administrator account securely without hardcoding default credentials:
+
+```bash
+# Run interactive CLI script on backend server instance
+cd backend
+python -c "
+import asyncio, uuid
+from app.core.database import AsyncSessionLocal
+from app.core.security import get_password_hash
+from app.models.user import User, UserRole, SkillLevel
+
+async def bootstrap():
+    async with AsyncSessionLocal() as db:
+        admin = User(
+            id=uuid.uuid4(),
+            email='admin@codetarget.com',
+            password_hash=get_password_hash('CHANGE_IMMEDIATELY_UPON_FIRST_LOGIN'),
+            full_name='System Administrator',
+            role=UserRole.ADMIN,
+            skill_level=SkillLevel.ADVANCED,
+            onboarding_completed=True
+        )
+        db.add(admin)
+        await db.commit()
+        print('Admin account created successfully.')
+
+asyncio.run(bootstrap())
+"
+```
+
+---
+
+## 🧪 Testing & CI/CD Pipeline
+
+CodeTarget uses GitHub Actions for continuous integration testing on every push and pull request.
+
+```bash
+# Run full Pytest backend suite (68+ tests)
+cd backend
+python -m pytest
+
+# Run Next.js frontend production build & typecheck
+cd frontend
+npm run build
+```
+
+---
+
+## 📜 License & Author
+
+Copyright © 2026 CodeTarget Team. All rights reserved.
