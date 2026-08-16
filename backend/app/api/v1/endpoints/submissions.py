@@ -164,6 +164,16 @@ async def submit_solution(
 
     await db.commit()
     await db.refresh(submission)
+
+    # Invalidate recommendation cache for user
+    if redis_client:
+        try:
+            keys = await redis_client.keys(f"recommendations:user:{current_user.id}:*")
+            if keys:
+                await redis_client.delete(*keys)
+        except Exception as e:
+            logger.warning(f"Failed to invalidate recommendation cache: {e}")
+
     return submission
 
 

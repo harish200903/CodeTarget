@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 from typing import List, Optional
 from pydantic import BaseModel, Field, ConfigDict
+from app.schemas.problem import ProblemListItemOut
 
 
 class AIHintRequest(BaseModel):
@@ -87,5 +88,22 @@ class AIRecommendationResponse(BaseModel):
     reasoning: str = Field(..., description="Explanation for recommended practice problems")
     recommended_problem_ids: List[str] = Field(default_factory=list, description="Target problem IDs")
     focus_topics: List[str] = Field(default_factory=list, description="DSA topic areas needing reinforcement")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RecommendationItem(BaseModel):
+    problem: ProblemListItemOut
+    reason: str = Field(..., description="Human-readable reason for recommendation")
+    reason_type: str = Field(..., description="Categorized reason code (WEAK_TOPIC, COMPANY_PREPARATION, DIFFICULTY_PROGRESSION, REINFORCEMENT, CHALLENGE)")
+    score: int = Field(..., description="Internal recommendation score (0-100)")
+
+    model_config = ConfigDict(from_attributes=True)
+
+
+class RecommendationListResponse(BaseModel):
+    items: List[RecommendationItem]
+    focus_topics: List[str]
+    source: str = Field("ai", description="Recommendation engine source ('ai' or 'deterministic')")
 
     model_config = ConfigDict(from_attributes=True)

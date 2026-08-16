@@ -144,6 +144,19 @@ export interface ProblemListItem {
   is_bookmarked: boolean;
 }
 
+export interface RecommendationItem {
+  problem: ProblemListItem;
+  reason: string;
+  reason_type: string;
+  score: number;
+}
+
+export interface RecommendationListResponse {
+  items: RecommendationItem[];
+  focus_topics: string[];
+  source: string;
+}
+
 export interface ProblemPaginatedResponse {
   items: ProblemListItem[];
   page: number;
@@ -303,6 +316,13 @@ export async function fetchProblems(
   if (params.page_size) query.set("page_size", params.page_size.toString());
 
   return apiRequest<ProblemPaginatedResponse>(`/api/v1/problems?${query.toString()}`, {}, token);
+}
+
+export async function fetchRecommendations(
+  token: string,
+  limit = 5
+): Promise<RecommendationListResponse> {
+  return apiRequest<RecommendationListResponse>(`/api/v1/recommendations?limit=${limit}`, {}, token);
 }
 
 export async function fetchProblemBySlug(slug: string, token: string): Promise<ProblemDetail> {
