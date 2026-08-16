@@ -209,8 +209,15 @@ class GamificationService:
 
     @staticmethod
     async def check_daily_goal_completion(db: AsyncSession, user_id: uuid.UUID) -> bool:
-        """Checks if today's daily goal is newly completed."""
+        """Checks if today's daily goal is newly completed based on user's configured goal."""
         act = await GamificationService.get_or_create_daily_activity(db, user_id)
+
+        # Sync goal_minutes with user's actual configured daily goal
+        user = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+        if user and act.goal_minutes != user.daily_goal_minutes:
+            act.goal_minutes = user.daily_goal_minutes
+            await db.flush()
+
         if not act.goal_completed and act.minutes_practiced >= act.goal_minutes:
             act.goal_completed = True
             await db.flush()
@@ -225,6 +232,7 @@ class GamificationService:
             )
             return True
         return act.goal_completed
+
 
     @staticmethod
     async def evaluate_badges(db: AsyncSession, user_id: uuid.UUID) -> List[Badge]:

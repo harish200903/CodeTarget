@@ -348,12 +348,14 @@ async def create_problem_admin(
         title=body.title,
         slug=body.slug,
         difficulty=diff_enum,
-        category=body.category if body.is_active else "INACTIVE",
+        category=body.category or "Algorithms",
+        is_active=body.is_active,
         description_markdown=body.description_markdown,
         constraints_text=body.constraints_text,
         starter_code=body.starter_code or {},
         solution_editorial=body.solution_editorial,
     )
+
     db.add(problem)
     await db.flush()
 
@@ -482,8 +484,9 @@ async def update_problem_admin(
         except KeyError:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid difficulty level.")
     if body.category is not None: problem.category = body.category
-    if body.is_active is False: problem.category = "INACTIVE"
+    if body.is_active is not None: problem.is_active = body.is_active
     if body.description_markdown is not None: problem.description_markdown = body.description_markdown
+
     if body.constraints_text is not None: problem.constraints_text = body.constraints_text
     if body.starter_code is not None: problem.starter_code = body.starter_code
     if body.solution_editorial is not None: problem.solution_editorial = body.solution_editorial
@@ -540,8 +543,9 @@ async def deactivate_problem_admin(
     if not problem:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Problem not found.")
 
-    problem.category = "INACTIVE"
+    problem.is_active = False
     await db.commit()
+
 
     await record_audit_log(
         db=db,

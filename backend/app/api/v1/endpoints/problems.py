@@ -41,7 +41,7 @@ async def list_problems(
     db: AsyncSession = Depends(get_db)
 ):
     """Retrieve paginated problem catalog with search and filters."""
-    query = select(Problem).options(
+    query = select(Problem).where(Problem.is_active == True).options(
         selectinload(Problem.topic_associations).selectinload(ProblemTopic.topic),
         selectinload(Problem.company_associations).selectinload(ProblemCompany.company)
     )
@@ -63,7 +63,8 @@ async def list_problems(
         query = query.join(ProblemCompany).join(Company).where(Company.slug == company)
 
     # Distinct problem IDs for counting
-    count_query = select(func.count(func.distinct(Problem.id)))
+    count_query = select(func.count(func.distinct(Problem.id))).where(Problem.is_active == True)
+
     if search:
         count_query = count_query.where(Problem.title.ilike(f"%{search}%"))
     if difficulty:
@@ -139,7 +140,8 @@ async def get_problem_by_slug(
     """Retrieve problem details for authenticated user. Hidden test cases and reference solution are excluded."""
     stmt = (
         select(Problem)
-        .where(Problem.slug == slug)
+        .where(and_(Problem.slug == slug, Problem.is_active == True))
+
         .options(
             selectinload(Problem.topic_associations).selectinload(ProblemTopic.topic),
             selectinload(Problem.company_associations).selectinload(ProblemCompany.company),

@@ -93,6 +93,7 @@ class RecommendationEngine:
         # 5. Query candidate problems (Exclude solved problems)
         query = (
             select(Problem)
+            .where(Problem.is_active == True)
             .options(
                 selectinload(Problem.topic_associations).selectinload(ProblemTopic.topic),
                 selectinload(Problem.company_associations).selectinload(ProblemCompany.company),
@@ -101,6 +102,7 @@ class RecommendationEngine:
 
         if solved_problem_ids:
             query = query.where(Problem.id.not_in(solved_problem_ids))
+
 
         res = await self.db.execute(query)
         candidate_problems = res.scalars().all()

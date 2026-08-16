@@ -53,6 +53,7 @@ class ProblemListItemOut(BaseModel):
     slug: str
     difficulty: DifficultyLevel
     category: str
+    is_active: bool = True
     topics: List[TopicOut] = []
     companies: List[ProblemCompanyOut] = []
     user_status: ProgressStatus = ProgressStatus.UNATTEMPTED
@@ -68,7 +69,9 @@ class ProblemDetailOut(BaseModel):
     description_markdown: str
     difficulty: DifficultyLevel
     category: str
+    is_active: bool = True
     constraints_text: Optional[str] = None
+
     starter_code: Dict[str, str]
     topics: List[TopicOut] = []
     companies: List[ProblemCompanyOut] = []

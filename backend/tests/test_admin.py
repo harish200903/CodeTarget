@@ -222,9 +222,11 @@ async def test_admin_soft_deactivation_preserves_submissions(async_client: Async
     res = await async_client.delete(f"/api/v1/admin/problems/{prob.id}", headers=admin_headers)
     assert res.status_code == 200
 
-    # Verify problem category is now INACTIVE
+    # Verify problem is_active is now False and category is preserved
     await db_session.refresh(prob)
-    assert prob.category == "INACTIVE"
+    assert prob.is_active is False
+    assert prob.category == "Arrays"
+
 
     # Verify submission remains intact in DB
     sub_check = (await db_session.get(Submission, sub.id))

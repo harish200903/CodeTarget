@@ -43,7 +43,9 @@ class Problem(Base):
     description_markdown = Column(Text, nullable=False)
     difficulty = Column(SQLEnum(DifficultyLevel), nullable=False, index=True)
     category = Column(String(100), default="Algorithms", nullable=False)
+    is_active = Column(Boolean, default=True, nullable=False, index=True)
     constraints_text = Column(Text, nullable=True)
+
     starter_code = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False)
     solution_editorial = Column(Text, nullable=True)
     
