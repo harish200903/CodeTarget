@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from app.api.v1.endpoints import health, auth, users, companies, problems, submissions, ai_hints, ai_code_review, recommendations, company_prep
+from app.api.v1.endpoints import health, auth, users, companies, problems, submissions, ai_hints, ai_code_review, recommendations, company_prep, mock_tests
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["Health"])
@@ -12,3 +12,4 @@ api_router.include_router(submissions.router, prefix="/submissions", tags=["Subm
 api_router.include_router(ai_hints.router, prefix="/ai/hints", tags=["AI Progressive Hints"])
 api_router.include_router(ai_code_review.router, prefix="/ai/code-review", tags=["AI Code Review"])
 api_router.include_router(recommendations.router, prefix="/recommendations", tags=["Personalized Recommendations"])
+api_router.include_router(mock_tests.router, prefix="/mock-tests", tags=["Mock Company Coding Tests"])

@@ -280,6 +280,120 @@ export interface SubmissionPaginatedResponse {
   total_pages: number;
 }
 
+// Mock Test Types
+export interface MockTestCatalogItem {
+  id: string;
+  company_id: string;
+  company_name: string;
+  company_slug: string;
+  title: string;
+  description?: string;
+  duration_minutes: number;
+  problem_count: number;
+  total_points: number;
+  user_last_status?: string;
+  user_last_score?: number;
+}
+
+export interface MockTestProblemItem {
+  problem_id: string;
+  title: string;
+  slug: string;
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  category: string;
+  order_index: number;
+  weight_score: number;
+  user_status: "UNATTEMPTED" | "ATTEMPTED" | "SOLVED";
+  score_obtained: number;
+  code_draft?: string;
+}
+
+export interface UserMockTestSessionResponse {
+  session_id: string;
+  mock_test_id: string;
+  title: string;
+  company_name: string;
+  company_slug: string;
+  duration_minutes: number;
+  started_at: string;
+  expires_at: string;
+  remaining_seconds: number;
+  status: "IN_PROGRESS" | "SUBMITTED" | "AUTO_SUBMITTED" | "TIMED_OUT" | "COMPLETED";
+  total_score: number;
+  max_possible_score: number;
+  problems: MockTestProblemItem[];
+}
+
+export interface SubmitMockProblemResponse {
+  submission_id: string;
+  status: string;
+  passed_test_cases: number;
+  total_test_cases: number;
+  score_obtained: number;
+  execution_time_ms?: number;
+  memory_kb?: number;
+  error_output?: string;
+}
+
+export interface MockTestResultProblemDetail {
+  problem_id: string;
+  title: string;
+  slug: string;
+  difficulty: string;
+  order_index: number;
+  weight_score: number;
+  score_obtained: number;
+  status: string;
+  passed_test_cases: number;
+  total_test_cases: number;
+}
+
+export interface MockTestTopicPerformance {
+  topic_id: string;
+  topic_name: string;
+  problems_count: number;
+  solved_count: number;
+  status: "STRONG" | "NEEDS_PRACTICE";
+}
+
+export interface MockTestDifficultyPerformance {
+  difficulty: string;
+  problems_count: number;
+  solved_count: number;
+}
+
+export interface MockTestResultResponse {
+  session_id: string;
+  mock_test_id: string;
+  title: string;
+  company_name: string;
+  status: string;
+  score: number;
+  total_points: number;
+  percentage: number;
+  time_taken_seconds: number;
+  started_at: string;
+  completed_at?: string;
+  problems: MockTestResultProblemDetail[];
+  topic_breakdown: MockTestTopicPerformance[];
+  difficulty_breakdown: MockTestDifficultyPerformance[];
+  recommended_next_steps: string[];
+  ai_explanation?: string;
+}
+
+export interface MockTestHistoryItem {
+  session_id: string;
+  mock_test_id: string;
+  title: string;
+  company_name: string;
+  company_slug: string;
+  status: string;
+  score: number;
+  total_points: number;
+  percentage: number;
+  completed_at?: string;
+}
+
 export async function fetchHealthStatus(): Promise<HealthCheckResponse> {
   try {
     const res = await fetch(`${API_BASE_URL}/api/v1/health`, {
@@ -326,7 +440,7 @@ export async function apiRequest<T>(
   const response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
-    credentials: "include", // Required for HttpOnly refresh cookies
+    credentials: "include",
   });
 
   const data = await response.json().catch(() => ({}));
@@ -427,6 +541,65 @@ export async function fetchSubmissionsForProblem(
     {},
     token
   );
+}
+
+// Mock Test Client API Functions
+export async function fetchMockTestCatalog(token: string): Promise<MockTestCatalogItem[]> {
+  return apiRequest<MockTestCatalogItem[]>("/api/v1/mock-tests", {}, token);
+}
+
+export async function startMockTestSession(token: string, mockTestId: string): Promise<UserMockTestSessionResponse> {
+  return apiRequest<UserMockTestSessionResponse>(`/api/v1/mock-tests/${mockTestId}/start`, { method: "POST" }, token);
+}
+
+export async function fetchActiveMockTestSession(token: string, sessionId: string): Promise<UserMockTestSessionResponse> {
+  return apiRequest<UserMockTestSessionResponse>(`/api/v1/mock-tests/sessions/${sessionId}`, {}, token);
+}
+
+export async function runMockProblemSample(
+  token: string,
+  sessionId: string,
+  problemId: string,
+  language: string,
+  code: string
+): Promise<BatchExecutionResult> {
+  return apiRequest<BatchExecutionResult>(
+    `/api/v1/mock-tests/sessions/${sessionId}/problems/${problemId}/run-sample`,
+    {
+      method: "POST",
+      body: JSON.stringify({ language, code }),
+    },
+    token
+  );
+}
+
+export async function submitMockProblemSolution(
+  token: string,
+  sessionId: string,
+  problemId: string,
+  language: string,
+  code: string
+): Promise<SubmitMockProblemResponse> {
+  return apiRequest<SubmitMockProblemResponse>(
+    `/api/v1/mock-tests/sessions/${sessionId}/problems/${problemId}/submit`,
+    {
+      method: "POST",
+      body: JSON.stringify({ language, code }),
+    },
+    token
+  );
+}
+
+export async function submitCompleteMockTest(token: string, sessionId: string): Promise<MockTestResultResponse> {
+  return apiRequest<MockTestResultResponse>(`/api/v1/mock-tests/sessions/${sessionId}/submit`, { method: "POST" }, token);
+}
+
+export async function fetchMockTestResult(token: string, sessionId: string): Promise<MockTestResultResponse> {
+  return apiRequest<MockTestResultResponse>(`/api/v1/mock-tests/sessions/${sessionId}/result`, {}, token);
+}
+
+export async function fetchMockTestHistory(token: string): Promise<MockTestHistoryItem[]> {
+  return apiRequest<MockTestHistoryItem[]>("/api/v1/mock-tests/history", {}, token);
 }
 
 export async function unlockNextHint(token: string, problemId: string): Promise<Hint> {

@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fetchRecommendations, RecommendationItem, RecommendationListResponse } from "@/lib/api";
 import {
   Target, Building2, Star, Code2, Gauge, Clock, LogOut, CheckCircle2,
-  User as UserIcon, Sparkles, ArrowRight, Play, Bot, AlertCircle, BarChart3
+  User as UserIcon, Sparkles, ArrowRight, Play, Bot, AlertCircle, BarChart3, FileCode2
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -59,12 +59,10 @@ export default function DashboardPage() {
     );
   }
 
-  const primaryTarget = user.target_companies?.find((tc) => tc.priority === 1);
-
   return (
     <div className="min-h-screen bg-[#0B0F17] flex flex-col justify-between p-6 md:p-12 max-w-6xl mx-auto space-y-10">
       {/* Top Navbar */}
-      <header className="w-full flex items-center justify-between border-b border-slate-800 pb-6">
+      <header className="w-full flex flex-wrap items-center justify-between border-b border-slate-800 pb-6 gap-4">
         <div className="flex items-center gap-3">
           <div className="p-2.5 rounded-xl bg-gradient-to-tr from-indigo-600 to-violet-500 shadow-lg shadow-indigo-500/20">
             <Target className="w-6 h-6 text-white" />
@@ -75,25 +73,27 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
+          <Link
+            href="/mock-tests"
+            className="px-4 py-2 rounded-xl bg-indigo-600/20 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-indigo-500/30 font-semibold text-xs transition-colors flex items-center gap-2"
+          >
+            <FileCode2 className="w-4 h-4 text-indigo-400" /> Mock Tests
+          </Link>
+
           <Link
             href="/company-preparation"
             className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-xs transition-colors flex items-center gap-2"
           >
-            <BarChart3 className="w-4 h-4 text-indigo-400" /> Preparation Analytics
+            <BarChart3 className="w-4 h-4 text-indigo-400" /> Prep Analytics
           </Link>
 
           <Link
             href="/problems"
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-2 shadow"
           >
-            <Code2 className="w-4 h-4" /> Practice Problems
+            <Code2 className="w-4 h-4" /> Practice Catalog
           </Link>
-
-          <div className="hidden sm:flex items-center gap-2 text-xs text-slate-300 bg-slate-900/80 px-3 py-1.5 rounded-xl border border-slate-800">
-            <UserIcon className="w-3.5 h-3.5 text-indigo-400" />
-            <span className="font-semibold">{user.full_name || user.email}</span>
-          </div>
 
           <button
             onClick={logout}
@@ -123,17 +123,40 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-3">
               <Link
-                href="/company-preparation"
+                href="/mock-tests"
                 className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
               >
-                <span>View Preparation Score</span>
+                <span>Take Mock Assessment</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
           </div>
         </div>
 
-        {/* Recommended For You Section (Phase 4D) */}
+        {/* Mock Tests Quick Action Card */}
+        <section className="glass-card rounded-2xl p-6 border border-slate-800 space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <FileCode2 className="w-5 h-5 text-indigo-400" />
+                <h3 className="text-base font-extrabold text-white">Mock Company Coding Tests</h3>
+              </div>
+              <p className="text-xs text-slate-400">
+                Practice under timed assessment conditions simulating company coding rounds.
+              </p>
+            </div>
+
+            <Link
+              href="/mock-tests"
+              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5"
+            >
+              <span>Explore Mock Catalog</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </section>
+
+        {/* Recommended For You Section */}
         <section className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center space-x-2.5">
@@ -152,7 +175,6 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* Current Focus Topics */}
             {recommendations?.focus_topics && recommendations.focus_topics.length > 0 && (
               <div className="flex items-center gap-2 text-xs">
                 <span className="text-slate-400 font-semibold">Current Focus:</span>
@@ -215,7 +237,6 @@ export default function DashboardPage() {
                       {item.problem.title}
                     </h4>
 
-                    {/* Recommendation Reason */}
                     <div className="p-3 rounded-xl bg-slate-900/90 border border-slate-800 text-xs text-slate-300 leading-relaxed font-sans">
                       <span className="text-indigo-400 font-semibold block mb-0.5 text-[10px] uppercase tracking-wider">
                         {item.reason_type.replace("_", " ")}
@@ -223,7 +244,6 @@ export default function DashboardPage() {
                       {item.reason}
                     </div>
 
-                    {/* Topic Pills */}
                     <div className="flex flex-wrap gap-1">
                       {item.problem.topics.map((t) => (
                         <span key={t.id} className="text-[10px] bg-slate-800/80 text-slate-300 px-2 py-0.5 rounded">
@@ -248,7 +268,6 @@ export default function DashboardPage() {
 
         {/* Persisted Onboarding Overview Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          {/* Target Companies */}
           <div className="glass-card rounded-2xl p-6 border border-slate-800 space-y-3">
             <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
               <span className="flex items-center gap-1.5">
@@ -277,7 +296,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Preferred Language */}
           <div className="glass-card rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
             <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
               <span className="flex items-center gap-1.5">
@@ -290,7 +308,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Skill Level */}
           <div className="glass-card rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
             <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
               <span className="flex items-center gap-1.5">
@@ -303,7 +320,6 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Daily Goal */}
           <div className="glass-card rounded-2xl p-6 border border-slate-800 flex flex-col justify-between space-y-4">
             <div className="flex items-center justify-between text-slate-400 text-xs font-semibold">
               <span className="flex items-center gap-1.5">

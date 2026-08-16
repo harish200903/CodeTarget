@@ -11,6 +11,8 @@ class MockTestStatus(str, enum.Enum):
     NOT_STARTED = "NOT_STARTED"
     IN_PROGRESS = "IN_PROGRESS"
     COMPLETED = "COMPLETED"
+    SUBMITTED = "SUBMITTED"
+    AUTO_SUBMITTED = "AUTO_SUBMITTED"
     TIMED_OUT = "TIMED_OUT"
 
 
@@ -80,3 +82,5 @@ class UserMockTestSubmission(Base):
 
     # Relationships
     user_mock_test = relationship("UserMockTest", back_populates="submissions")
+    problem = relationship("Problem")
+    submission = relationship("Submission")

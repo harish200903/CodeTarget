@@ -5,10 +5,12 @@ from datetime import datetime, timezone
 from typing import AsyncGenerator
 from httpx import AsyncClient, ASGITransport
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
+from sqlalchemy.future import select
 from app.main import app
 from app.core.database import Base, get_db
 from app.models.company import Company
 from app.models.problem import Problem, Topic, ProblemCompany, ProblemTopic, TestCase, Hint, DifficultyLevel
+from app.models.mock_test import MockTest, MockTestProblem
 from app.db.seed_data import DSA_TOPICS, PROBLEMS_DATA
 
 # Use in-memory SQLite for testing
@@ -38,7 +40,7 @@ def event_loop():
 
 @pytest.fixture(autouse=True)
 async def setup_test_db():
-    """Create all tables and seed initial companies, topics, problems, test cases, and hints in test DB."""
+    """Create all tables and seed initial companies, topics, problems, test cases, hints, and mock tests in test DB."""
     async with test_engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
@@ -71,6 +73,7 @@ async def setup_test_db():
         await session.flush()
 
         # 3. Seed Problems, Test Cases, Hints
+        all_prob_objs = []
         for p_data in PROBLEMS_DATA:
             prob_obj = Problem(
                 id=uuid.uuid4(),
@@ -85,6 +88,7 @@ async def setup_test_db():
             )
             session.add(prob_obj)
             await session.flush()
+            all_prob_objs.append(prob_obj)
 
             # Topics
             for t_slug in p_data["topics"]:
@@ -137,6 +141,42 @@ async def setup_test_db():
                     title=h["title"],
                     content_markdown=h["content"]
                 ))
+
+        await session.flush()
+
+        # 4. Seed Mock Tests for each Company
+        for c in companies_seed:
+            c_easy = [p for p in all_prob_objs if p.difficulty == DifficultyLevel.EASY] or all_prob_objs
+            c_med = [p for p in all_prob_objs if p.difficulty == DifficultyLevel.MEDIUM] or all_prob_objs
+            c_hard = [p for p in all_prob_objs if p.difficulty == DifficultyLevel.HARD] or all_prob_objs
+
+            # Quick Mock
+            q_mock = MockTest(
+                id=uuid.uuid4(),
+                company_id=c.id,
+                title=f"{c.name}-Style Quick Mock",
+                description=f"2 Problems • 30 Minutes. Quick practice simulation for {c.name}.",
+                duration_minutes=30,
+            )
+            session.add(q_mock)
+            await session.flush()
+            session.add(MockTestProblem(id=uuid.uuid4(), mock_test_id=q_mock.id, problem_id=c_easy[0].id, order_index=1, weight_score=50))
+            session.add(MockTestProblem(id=uuid.uuid4(), mock_test_id=q_mock.id, problem_id=c_med[0].id, order_index=2, weight_score=50))
+
+            # Standard Mock
+            s_mock = MockTest(
+                id=uuid.uuid4(),
+                company_id=c.id,
+                title=f"{c.name}-Style Standard Mock",
+                description=f"3 Problems • 60 Minutes. Standard assessment for {c.name}.",
+                duration_minutes=60,
+            )
+            session.add(s_mock)
+            await session.flush()
+            p2_med = c_med[1].id if len(c_med) > 1 else c_med[0].id
+            session.add(MockTestProblem(id=uuid.uuid4(), mock_test_id=s_mock.id, problem_id=c_easy[0].id, order_index=1, weight_score=30))
+            session.add(MockTestProblem(id=uuid.uuid4(), mock_test_id=s_mock.id, problem_id=c_med[0].id, order_index=2, weight_score=35))
+            session.add(MockTestProblem(id=uuid.uuid4(), mock_test_id=s_mock.id, problem_id=p2_med, order_index=3, weight_score=35))
 
         await session.commit()
 
