@@ -13,7 +13,7 @@ CodeTarget is a production-grade full-stack web application designed for company
 - **Database**: PostgreSQL 16 (Fully normalized relational schema).
 - **Caching & Task Queue**: Redis 7.
 - **Code Execution Subsystem**: Isolated Judge0 integration behind internal `ExecutionService` backend abstraction.
-- **AI Subsystem**: Google Gemini 2.5 Flash API integrated behind internal `AIService` backend abstraction.
+- **AI Subsystem**: Provider-independent `AIService` abstraction with Google Gemini 2.5 Flash initial provider (`GeminiAIService`).
 
 ---
 
@@ -22,6 +22,33 @@ CodeTarget is a production-grade full-stack web application designed for company
 - **Python 3**
 - **Java**
 - **C++**
+
+---
+
+## 🤖 AI Service Infrastructure Architecture (Phase 4A)
+
+CodeTarget uses a provider-independent AI architecture:
+
+```text
+Frontend (Next.js)
+       ↓
+FastAPI Backend (Future Purpose-Specific APIs: /api/v1/ai/*)
+       ↓
+AIService (Abstract Base Class Interface)
+       ↓
+GeminiAIService (Google Gemini 2.5 Flash Concrete Provider)
+       ↓
+Google Gemini API (Official google-genai SDK)
+```
+
+### Key AI Features & Design Principles:
+1. **Provider Isolation**: Future AI features depend strictly on `AIService`, allowing seamless provider migration without changing application code.
+2. **Environment Configuration**: Controlled via `GEMINI_API_KEY`, `GEMINI_MODEL` (default: `gemini-2.5-flash`), `AI_ENABLED` (default: `false`), `AI_REQUEST_TIMEOUT_SECONDS` (15s), `AI_MAX_INPUT_CHARS` (8000), `AI_RATE_LIMIT_PER_MINUTE` (10).
+3. **Structured Outputs**: All responses validated using Pydantic schemas (`AIHintResponse`, `AICodeReviewResponse`, `AIErrorExplanationResponse`, `AIRecommendationResponse`).
+4. **Prompt Security**: Strict prompt delimiters (`<USER_CODE>`, `<PROBLEM_SPEC>`, `<ERROR_OUTPUT>`) defend against prompt injection attacks. User input cannot override system instructions.
+5. **Fail-Safe Operation**: If AI is disabled or Gemini API is unreachable, the application degrades gracefully. Primary problem solving, code execution, and Judge0 function without AI.
+6. **Rate Limiting & Caching**: Redis sliding window limits requests to 10/min/user. SHA256 caching caches deterministic requests.
+7. **Offline Testing**: Pytest test suite runs 100% offline using mocked provider interfaces (no live Gemini API key required).
 
 ---
 
@@ -38,8 +65,9 @@ CodeTarget is a production-grade full-stack web application designed for company
 │   │   ├── api/                # API router & endpoints
 │   │   ├── core/               # Configuration, Database & Redis managers
 │   │   ├── models/             # Normalized SQLAlchemy ORM models
-│   │   └── schemas/            # Pydantic data schemas
-│   └── tests/                  # Pytest test suite
+│   │   ├── schemas/            # Pydantic data & AI response schemas
+│   │   └── services/           # ExecutionService & AIService infrastructure
+│   └── tests/                  # Pytest test suite (100% pass rate)
 └── frontend/                   # Next.js 14 frontend application
     ├── src/
     │   ├── app/                # Next.js App Router pages
@@ -50,7 +78,7 @@ CodeTarget is a production-grade full-stack web application designed for company
 
 ---
 
-## 🚀 Phase 1 Foundation Setup Instructions
+## 🚀 Local Setup Instructions
 
 ### 1. Prerequisites
 - Python 3.11+
