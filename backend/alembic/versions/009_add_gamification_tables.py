@@ -9,6 +9,7 @@ import uuid
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
+from app.models.base import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = '009_add_gamification_tables'
@@ -21,8 +22,8 @@ def upgrade() -> None:
     # 1. user_gamifications
     op.create_table(
         'user_gamifications',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False, unique=True),
         sa.Column('total_xp', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('current_level', sa.Integer(), nullable=False, server_default='1'),
         sa.Column('current_streak', sa.Integer(), nullable=False, server_default='0'),
@@ -38,8 +39,8 @@ def upgrade() -> None:
     # 2. xp_transactions
     op.create_table(
         'xp_transactions',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('amount', sa.Integer(), nullable=False),
         sa.Column('reason', sa.String(100), nullable=False),
         sa.Column('reference_type', sa.String(50), nullable=False),
@@ -54,8 +55,8 @@ def upgrade() -> None:
     # 3. daily_activities
     op.create_table(
         'daily_activities',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
         sa.Column('activity_date', sa.Date(), nullable=False),
         sa.Column('minutes_practiced', sa.Integer(), nullable=False, server_default='0'),
         sa.Column('problems_attempted', sa.Integer(), nullable=False, server_default='0'),
@@ -74,7 +75,7 @@ def upgrade() -> None:
     # 4. badges
     op.create_table(
         'badges',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
+        sa.Column('id', GUID(), primary_key=True),
         sa.Column('slug', sa.String(100), nullable=False, unique=True),
         sa.Column('name', sa.String(150), nullable=False),
         sa.Column('description', sa.Text(), nullable=False),
@@ -88,9 +89,9 @@ def upgrade() -> None:
     # 5. user_badges
     op.create_table(
         'user_badges',
-        sa.Column('id', sa.CHAR(36), primary_key=True),
-        sa.Column('user_id', sa.CHAR(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('badge_id', sa.CHAR(36), sa.ForeignKey('badges.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('badge_id', GUID(), sa.ForeignKey('badges.id', ondelete='CASCADE'), nullable=False),
         sa.Column('awarded_at', sa.DateTime(timezone=True), nullable=False),
         sa.UniqueConstraint('user_id', 'badge_id', name='uq_user_badge'),
     )
@@ -100,7 +101,7 @@ def upgrade() -> None:
     # Seed 10 initial badges
     badges_table = sa.table(
         'badges',
-        sa.column('id', sa.CHAR(36)),
+        sa.column('id', GUID()),
         sa.column('slug', sa.String),
         sa.column('name', sa.String),
         sa.column('description', sa.Text),

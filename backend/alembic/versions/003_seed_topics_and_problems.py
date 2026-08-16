@@ -14,6 +14,7 @@ from sqlalchemy.sql import table, column
 from sqlalchemy.dialects.postgresql import JSONB
 
 from app.db.seed_data import DSA_TOPICS, PROBLEMS_DATA
+from app.models.base import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = '003_seed_topics_and_problems'
@@ -32,7 +33,7 @@ def upgrade() -> None:
     # 1. Seed Topics
     topics_table = table(
         'topics',
-        column('id', sa.String),
+        column('id', GUID()),
         column('name', sa.String),
         column('slug', sa.String),
         column('description', sa.String)
@@ -59,41 +60,41 @@ def upgrade() -> None:
     # 3. Tables for bulk inserts
     problems_table = table(
         'problems',
-        column('id', sa.String),
+        column('id', GUID()),
         column('title', sa.String),
         column('slug', sa.String),
         column('description_markdown', sa.String),
-        column('difficulty', sa.String),
+        column('difficulty', sa.Enum('EASY', 'MEDIUM', 'HARD', name='difficultylevel')),
         column('category', sa.String),
         column('constraints_text', sa.String),
         column('starter_code', JSONB),
         column('solution_editorial', sa.String),
-        column('created_at', sa.DateTime),
-        column('updated_at', sa.DateTime)
+        column('created_at', sa.DateTime(timezone=True)),
+        column('updated_at', sa.DateTime(timezone=True))
     )
 
     prob_topics_table = table(
         'problem_topics',
-        column('id', sa.String),
-        column('problem_id', sa.String),
-        column('topic_id', sa.String)
+        column('id', GUID()),
+        column('problem_id', GUID()),
+        column('topic_id', GUID())
     )
 
     prob_companies_table = table(
         'problem_companies',
-        column('id', sa.String),
-        column('problem_id', sa.String),
-        column('company_id', sa.String),
+        column('id', GUID()),
+        column('problem_id', GUID()),
+        column('company_id', GUID()),
         column('frequency_weight', sa.Float),
         column('recency_window', sa.String),
-        column('round_type', sa.String),
-        column('source_classification', sa.String)
+        column('round_type', sa.Enum('ONLINE_ASSESSMENT', 'TECHNICAL_SCREEN', 'ONSITE_ROUND', 'SYSTEM_DESIGN', name='interviewroundtype')),
+        column('source_classification', sa.Enum('OFFICIAL', 'VERIFIED', 'CURATED', 'COMMUNITY_REPORTED', 'PATTERN_BASED', name='sourceclassification'))
     )
 
     test_cases_table = table(
         'test_cases',
-        column('id', sa.String),
-        column('problem_id', sa.String),
+        column('id', GUID()),
+        column('problem_id', GUID()),
         column('input_data', sa.String),
         column('expected_output', sa.String),
         column('is_sample', sa.Boolean),
@@ -103,8 +104,8 @@ def upgrade() -> None:
 
     hints_table = table(
         'hints',
-        column('id', sa.String),
-        column('problem_id', sa.String),
+        column('id', GUID()),
+        column('problem_id', GUID()),
         column('step_number', sa.Integer),
         column('title', sa.String),
         column('content_markdown', sa.String),

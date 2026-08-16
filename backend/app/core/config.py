@@ -1,7 +1,10 @@
 import os
+from pathlib import Path
 from typing import List, Union
 from pydantic import AnyHttpUrl, validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+ROOT_DIR = Path(__file__).resolve().parents[3]
 
 
 class Settings(BaseSettings):
@@ -16,8 +19,7 @@ class Settings(BaseSettings):
     REFRESH_TOKEN_EXPIRE_DAYS: int = 7
     
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://codetarget_user:codetarget_password@localhost:5432/codetarget_db"
-    
+    DATABASE_URL: str
     # Redis
     REDIS_URL: str = "redis://localhost:6379/0"
     
@@ -41,9 +43,9 @@ class Settings(BaseSettings):
     ]
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=ROOT_DIR / ".env",
         env_file_encoding="utf-8",
-        extra="ignore"
+        extra="ignore",
     )
 
 

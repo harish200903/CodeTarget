@@ -8,7 +8,7 @@ Create Date: 2026-08-16 14:55:00.000000
 from typing import Sequence, Union
 from alembic import op
 import sqlalchemy as sa
-from sqlalchemy.dialects import postgresql
+from app.models.base import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = '006_add_user_ai_code_reviews'
@@ -20,9 +20,9 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     op.create_table(
         'user_ai_code_reviews',
-        sa.Column('id', sa.String(36), primary_key=True),
-        sa.Column('user_id', sa.String(36), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
-        sa.Column('problem_id', sa.String(36), sa.ForeignKey('problems.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('id', GUID(), primary_key=True),
+        sa.Column('user_id', GUID(), sa.ForeignKey('users.id', ondelete='CASCADE'), nullable=False),
+        sa.Column('problem_id', GUID(), sa.ForeignKey('problems.id', ondelete='CASCADE'), nullable=False),
         sa.Column('language', sa.String(20), nullable=False),
         sa.Column('source_code_hash', sa.String(64), nullable=True),
         sa.Column('summary', sa.Text(), nullable=False),

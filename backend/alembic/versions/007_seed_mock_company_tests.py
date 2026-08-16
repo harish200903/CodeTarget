@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.sql import table, column, select
+from app.models.base import GUID
 
 # revision identifiers, used by Alembic.
 revision: str = '007_seed_mock_company_tests'
@@ -20,28 +21,28 @@ depends_on: Union[str, Sequence[str], None] = None
 
 companies_table = table(
     'companies',
-    column('id', sa.String),
+    column('id', GUID()),
     column('name', sa.String),
     column('slug', sa.String)
 )
 
 problems_table = table(
     'problems',
-    column('id', sa.String),
+    column('id', GUID()),
     column('title', sa.String),
-    column('difficulty', sa.String)
+    column('difficulty', sa.Enum('EASY', 'MEDIUM', 'HARD', name='difficultylevel'))
 )
 
 problem_companies_table = table(
     'problem_companies',
-    column('problem_id', sa.String),
-    column('company_id', sa.String)
+    column('problem_id', GUID()),
+    column('company_id', GUID())
 )
 
 mock_tests_table = table(
     'mock_tests',
-    column('id', sa.String),
-    column('company_id', sa.String),
+    column('id', GUID()),
+    column('company_id', GUID()),
     column('title', sa.String),
     column('description', sa.String),
     column('duration_minutes', sa.Integer),
@@ -50,9 +51,9 @@ mock_tests_table = table(
 
 mock_test_problems_table = table(
     'mock_test_problems',
-    column('id', sa.String),
-    column('mock_test_id', sa.String),
-    column('problem_id', sa.String),
+    column('id', GUID()),
+    column('mock_test_id', GUID()),
+    column('problem_id', GUID()),
     column('order_index', sa.Integer),
     column('weight_score', sa.Integer)
 )
@@ -87,10 +88,10 @@ def upgrade() -> None:
         comp_prob_stmt = select(problem_companies_table.c.problem_id).where(problem_companies_table.c.company_id == comp_id)
         c_probs = [row[0] for row in conn.execute(comp_prob_stmt).fetchall()]
 
-        # Filter by difficulty or use general pool
-        c_easy = [p for p in easy_probs if p in c_probs] or easy_probs
-        c_med = [p for p in med_probs if p in c_probs] or med_probs
-        c_hard = [p for p in hard_probs if p in c_probs] or hard_probs
+        # Prioritize company-linked problems, fallback to general pool with distinct items
+        c_easy = [p for p in easy_probs if p in c_probs] + [p for p in easy_probs if p not in c_probs] or easy_probs
+        c_med = [p for p in med_probs if p in c_probs] + [p for p in med_probs if p not in c_probs] or med_probs
+        c_hard = [p for p in hard_probs if p in c_probs] + [p for p in hard_probs if p not in c_probs] or hard_probs
 
         # 1. Quick Mock (30 mins, 2 problems: 1 Easy, 1 Medium)
         q_id = str(uuid.uuid4())

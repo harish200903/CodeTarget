@@ -12,6 +12,8 @@ from alembic import op
 import sqlalchemy as sa
 from sqlalchemy.sql import table, column
 
+from app.models.base import GUID
+
 # revision identifiers, used by Alembic.
 revision: str = '002_seed_initial_companies'
 down_revision: Union[str, None] = '001_initial_schema'
@@ -105,12 +107,12 @@ INITIAL_COMPANIES = [
 def upgrade() -> None:
     companies_table = table(
         'companies',
-        column('id', sa.String),
+        column('id', GUID()),
         column('name', sa.String),
         column('slug', sa.String),
         column('description', sa.String),
         column('tier', sa.String),
-        column('created_at', sa.DateTime)
+        column('created_at', sa.DateTime(timezone=True))
     )
     
     op.bulk_insert(companies_table, INITIAL_COMPANIES)
