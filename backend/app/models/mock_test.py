@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import enum
 from sqlalchemy import Column, String, Text, Integer, DateTime, ForeignKey, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
+from app.models.base import GUID
 
 
 class MockTestStatus(str, enum.Enum):
@@ -17,8 +17,8 @@ class MockTestStatus(str, enum.Enum):
 class MockTest(Base):
     __tablename__ = "mock_tests"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    company_id = Column(GUID, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     title = Column(String(255), nullable=False)
     description = Column(Text, nullable=True)
     duration_minutes = Column(Integer, default=90, nullable=False)
@@ -36,9 +36,9 @@ class MockTestProblem(Base):
         UniqueConstraint('mock_test_id', 'problem_id', name='uq_mock_test_problem'),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    mock_test_id = Column(UUID(as_uuid=True), ForeignKey("mock_tests.id", ondelete="CASCADE"), nullable=False, index=True)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    mock_test_id = Column(GUID, ForeignKey("mock_tests.id", ondelete="CASCADE"), nullable=False, index=True)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
     order_index = Column(Integer, default=1, nullable=False)
     weight_score = Column(Integer, default=100, nullable=False)
 
@@ -50,9 +50,9 @@ class MockTestProblem(Base):
 class UserMockTest(Base):
     __tablename__ = "user_mock_tests"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    mock_test_id = Column(UUID(as_uuid=True), ForeignKey("mock_tests.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    mock_test_id = Column(GUID, ForeignKey("mock_tests.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(SQLEnum(MockTestStatus), default=MockTestStatus.IN_PROGRESS, nullable=False, index=True)
     total_score = Column(Integer, default=0, nullable=False)
     max_possible_score = Column(Integer, default=0, nullable=False)
@@ -72,10 +72,10 @@ class UserMockTestSubmission(Base):
         UniqueConstraint('user_mock_test_id', 'problem_id', name='uq_user_mock_test_problem'),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_mock_test_id = Column(UUID(as_uuid=True), ForeignKey("user_mock_tests.id", ondelete="CASCADE"), nullable=False, index=True)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
-    submission_id = Column(UUID(as_uuid=True), ForeignKey("submissions.id", ondelete="SET NULL"), nullable=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_mock_test_id = Column(GUID, ForeignKey("user_mock_tests.id", ondelete="CASCADE"), nullable=False, index=True)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    submission_id = Column(GUID, ForeignKey("submissions.id", ondelete="SET NULL"), nullable=True)
     score_obtained = Column(Integer, default=0, nullable=False)
 
     # Relationships

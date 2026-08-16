@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { AuthProvider } from "@/lib/auth-context";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -14,7 +15,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="dark">
       <body className="antialiased bg-[#0B0F17] text-slate-100 selection:bg-indigo-500/30 selection:text-indigo-200">
-        {children}
+        <AuthProvider>{children}</AuthProvider>
       </body>
     </html>
   );

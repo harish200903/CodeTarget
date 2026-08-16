@@ -1,10 +1,11 @@
 import uuid
 from datetime import datetime, timezone
 import enum
-from sqlalchemy import Column, String, Text, Boolean, Integer, Float, DateTime, ForeignKey, Enum as SQLEnum, UniqueConstraint
+from sqlalchemy import Column, String, Text, Boolean, Integer, Float, DateTime, ForeignKey, Enum as SQLEnum, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID, JSONB
+from sqlalchemy.dialects.postgresql import JSONB
 from app.core.database import Base
+from app.models.base import GUID
 from app.models.company import SourceClassification
 
 
@@ -24,7 +25,7 @@ class InterviewRoundType(str, enum.Enum):
 class Topic(Base):
     __tablename__ = "topics"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
     name = Column(String(100), unique=True, nullable=False, index=True)
     slug = Column(String(100), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
@@ -36,13 +37,13 @@ class Topic(Base):
 class Problem(Base):
     __tablename__ = "problems"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
     title = Column(String(255), nullable=False)
     slug = Column(String(255), unique=True, nullable=False, index=True)
     description_markdown = Column(Text, nullable=False)
     difficulty = Column(SQLEnum(DifficultyLevel), nullable=False, index=True)
     constraints_text = Column(Text, nullable=True)
-    starter_code = Column(JSONB, nullable=False)  # {"python": "...", "java": "...", "cpp": "..."}
+    starter_code = Column(JSON().with_variant(JSONB, "postgresql"), nullable=False)
     solution_editorial = Column(Text, nullable=True)
     
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -64,9 +65,9 @@ class ProblemCompany(Base):
         UniqueConstraint('problem_id', 'company_id', name='uq_problem_company'),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
-    company_id = Column(UUID(as_uuid=True), ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    company_id = Column(GUID, ForeignKey("companies.id", ondelete="CASCADE"), nullable=False, index=True)
     frequency_weight = Column(Float, default=1.0, nullable=False)
     recency_window = Column(String(50), default="Last 12 Months", nullable=False)
     round_type = Column(SQLEnum(InterviewRoundType), default=InterviewRoundType.ONLINE_ASSESSMENT, nullable=False)
@@ -83,9 +84,9 @@ class ProblemTopic(Base):
         UniqueConstraint('problem_id', 'topic_id', name='uq_problem_topic'),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
-    topic_id = Column(UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    topic_id = Column(GUID, ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True)
 
     # Relationships
     problem = relationship("Problem", back_populates="topic_associations")
@@ -95,11 +96,11 @@ class ProblemTopic(Base):
 class TestCase(Base):
     __tablename__ = "test_cases"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
     input_data = Column(Text, nullable=False)
     expected_output = Column(Text, nullable=False)
-    is_sample = Column(Boolean, default=False, nullable=False)  # True for public sample, False for hidden evaluation
+    is_sample = Column(Boolean, default=False, nullable=False)
     time_limit_ms = Column(Integer, default=2000, nullable=False)
     memory_limit_mb = Column(Integer, default=256, nullable=False)
 
@@ -113,8 +114,8 @@ class Hint(Base):
         UniqueConstraint('problem_id', 'step_number', name='uq_problem_hint_step'),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
     step_number = Column(Integer, nullable=False)
     title = Column(String(100), nullable=False)
     content_markdown = Column(Text, nullable=False)

@@ -3,8 +3,8 @@ from datetime import datetime, timezone
 import enum
 from sqlalchemy import Column, String, Text, Boolean, Integer, DateTime, ForeignKey, Enum as SQLEnum, UniqueConstraint
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 from app.core.database import Base
+from app.models.base import GUID
 
 
 class SubmissionStatus(str, enum.Enum):
@@ -29,10 +29,10 @@ class ProgressStatus(str, enum.Enum):
 class Submission(Base):
     __tablename__ = "submissions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
-    language = Column(String(20), nullable=False)  # python, java, cpp
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    language = Column(String(20), nullable=False)
     code = Column(Text, nullable=False)
     status = Column(SQLEnum(SubmissionStatus), default=SubmissionStatus.PENDING, nullable=False, index=True)
     
@@ -56,9 +56,9 @@ class UserProblemProgress(Base):
         UniqueConstraint('user_id', 'problem_id', name='uq_user_problem_progress'),
     )
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    problem_id = Column(UUID(as_uuid=True), ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(GUID, primary_key=True, default=uuid.uuid4)
+    user_id = Column(GUID, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
+    problem_id = Column(GUID, ForeignKey("problems.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(SQLEnum(ProgressStatus), default=ProgressStatus.UNATTEMPTED, nullable=False, index=True)
     hints_unlocked = Column(Integer, default=0, nullable=False)
     attempts_count = Column(Integer, default=0, nullable=False)
