@@ -7,7 +7,7 @@ import { useAuth } from "@/lib/auth-context";
 import { fetchRecommendations, RecommendationItem, RecommendationListResponse } from "@/lib/api";
 import {
   Target, Building2, Star, Code2, Gauge, Clock, LogOut, CheckCircle2,
-  User as UserIcon, Sparkles, ArrowRight, Play, Bot, AlertCircle
+  User as UserIcon, Sparkles, ArrowRight, Play, Bot, AlertCircle, BarChart3
 } from "lucide-react";
 
 export default function DashboardPage() {
@@ -77,6 +77,13 @@ export default function DashboardPage() {
 
         <div className="flex items-center gap-4">
           <Link
+            href="/company-preparation"
+            className="px-4 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-slate-200 font-semibold text-xs transition-colors flex items-center gap-2"
+          >
+            <BarChart3 className="w-4 h-4 text-indigo-400" /> Preparation Analytics
+          </Link>
+
+          <Link
             href="/problems"
             className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold text-xs transition-colors flex items-center gap-2 shadow"
           >
@@ -116,10 +123,10 @@ export default function DashboardPage() {
 
             <div className="flex items-center gap-3">
               <Link
-                href="/problems"
+                href="/company-preparation"
                 className="px-6 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white font-bold text-sm rounded-xl transition-all shadow-lg shadow-indigo-500/20 flex items-center gap-2"
               >
-                <span>Browse Catalog</span>
+                <span>View Preparation Score</span>
                 <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -254,7 +261,7 @@ export default function DashboardPage() {
               {user.target_companies?.map((tc) => (
                 <Link
                   key={tc.id}
-                  href={`/problems?company=${tc.company.slug}`}
+                  href={`/company-preparation`}
                   className="flex items-center justify-between text-xs py-1.5 px-2.5 rounded-lg bg-slate-900/60 hover:bg-slate-800/80 border border-slate-800/80 transition-colors"
                 >
                   <span className="font-semibold text-slate-200">{tc.company.name}</span>

@@ -132,6 +132,58 @@ export interface UserAICodeReviewDetailResponse {
   created_at: string;
 }
 
+export interface TopicBreakdownItem {
+  topic_id: string;
+  topic_name: string;
+  available: number;
+  attempted: number;
+  solved: number;
+  solve_rate: number;
+  coverage_pct: number;
+  status: "NOT_STARTED" | "NEEDS_PRACTICE" | "DEVELOPING" | "STRONG";
+}
+
+export interface DifficultyBreakdownItem {
+  difficulty: "EASY" | "MEDIUM" | "HARD";
+  available: number;
+  attempted: number;
+  solved: number;
+  solve_rate: number;
+}
+
+export interface CoverageMetrics {
+  overall: number;
+  topics: number;
+  difficulty: number;
+}
+
+export interface ProblemCounts {
+  available: number;
+  attempted: number;
+  solved: number;
+}
+
+export interface CompanyInfo {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+export interface CompanyPreparationResponse {
+  company: CompanyInfo;
+  preparation_score?: number | null;
+  status: "INSUFFICIENT_DATA" | "STARTING" | "DEVELOPING" | "WELL_PREPARED";
+  confidence_message: string;
+  coverage: CoverageMetrics;
+  problems: ProblemCounts;
+  topic_breakdown: TopicBreakdownItem[];
+  difficulty_breakdown: DifficultyBreakdownItem[];
+  strengths: string[];
+  focus_areas: string[];
+  recommended_next_steps: string[];
+  ai_explanation?: string | null;
+}
+
 export interface ProblemListItem {
   id: string;
   title: string;
@@ -323,6 +375,13 @@ export async function fetchRecommendations(
   limit = 5
 ): Promise<RecommendationListResponse> {
   return apiRequest<RecommendationListResponse>(`/api/v1/recommendations?limit=${limit}`, {}, token);
+}
+
+export async function fetchCompanyPreparation(
+  token: string,
+  companyId: string
+): Promise<CompanyPreparationResponse> {
+  return apiRequest<CompanyPreparationResponse>(`/api/v1/companies/${companyId}/preparation`, {}, token);
 }
 
 export async function fetchProblemBySlug(slug: string, token: string): Promise<ProblemDetail> {
