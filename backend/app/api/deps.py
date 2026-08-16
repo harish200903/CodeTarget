@@ -8,6 +8,8 @@ from sqlalchemy.orm import selectinload
 from app.core.database import get_db
 from app.core.security import decode_token
 from app.models.user import User, UserTargetCompany, UserRole
+from app.services.ai.base import AIService
+from app.services.ai.gemini import GeminiAIService
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
 
@@ -76,3 +78,8 @@ async def require_admin_role(current_user: User = Depends(get_current_user)) -> 
             detail="Admin privileges required for this action"
         )
     return current_user
+
+
+def get_ai_service() -> AIService:
+    """Dependency injector returning configured provider-independent AIService instance."""
+    return GeminiAIService()

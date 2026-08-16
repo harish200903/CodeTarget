@@ -25,8 +25,14 @@ class Settings(BaseSettings):
     JUDGE0_URL: str = "http://localhost:2358"
     JUDGE0_API_KEY: str = ""
     
-    # AI Subsystem (Google Gemini 2.5 Flash)
+    # AI Subsystem (Google Gemini 2.5 Flash Infrastructure)
     GEMINI_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+    AI_ENABLED: bool = False
+    AI_REQUEST_TIMEOUT_SECONDS: int = 15
+    AI_MAX_INPUT_CHARS: int = 8000
+    AI_MAX_OUTPUT_TOKENS: int = 1000
+    AI_RATE_LIMIT_PER_MINUTE: int = 10
     
     # CORS
     BACKEND_CORS_ORIGINS: List[str] = [

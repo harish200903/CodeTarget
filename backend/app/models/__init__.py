@@ -9,6 +9,7 @@ from app.models.submission import Submission, UserProblemProgress, SubmissionSta
 from app.models.mock_test import (
     MockTest, MockTestProblem, UserMockTest, UserMockTestSubmission, MockTestStatus
 )
+from app.models.ai_log import AIUsageLog
 
 __all__ = [
     "Base",
@@ -35,4 +36,5 @@ __all__ = [
     "UserMockTest",
     "UserMockTestSubmission",
     "MockTestStatus",
+    "AIUsageLog",
 ]
